@@ -177,7 +177,10 @@
                        groups="csspl_project.priority_star_visible"/>
             </xpath>
             <xpath expr="//field[@name='date']" position="after">
-                <field name="bank_date" string="Transfer Date"/>
+                <field name="bank_date" string="Transfer Date" options="{'numeric': true}"/>
+            </xpath>
+              <xpath expr="//field[@name='date']" position="attributes">
+                 <attribute name="options">{'numeric': true}</attribute>
             </xpath>
         </field>
     </record>
@@ -363,11 +366,11 @@
             <xpath expr="//form" position="inside">
                 <field name="payment_ids" invisible="1"/>
             </xpath>
-            <xpath expr="//page[@name='aml_tab']//field[@name='line_ids']" position="attributes">
-                <attribute name="readonly">payment_ids != []</attribute>
-                <!--                <attribute name="attrs">{'readonly': [('payment_ids', '!=', False), ('move_type', '=', 'entry')]}</attribute>-->
-                <!--                <attribute name="readonly">[('payment_ids', '!=', False)]</attribute>-->
-            </xpath>
+<!--            <xpath expr="//page[@name='aml_tab']//field[@name='line_ids']" position="attributes">-->
+<!--                <attribute name="readonly">payment_ids != []</attribute>-->
+<!--                &lt;!&ndash;                <attribute name="attrs">{'readonly': [('payment_ids', '!=', False), ('move_type', '=', 'entry')]}</attribute>&ndash;&gt;-->
+<!--                &lt;!&ndash;                <attribute name="readonly">[('payment_ids', '!=', False)]</attribute>&ndash;&gt;-->
+<!--            </xpath>-->
         </field>
     </record>
 </odoo>

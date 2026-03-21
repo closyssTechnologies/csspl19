@@ -21,6 +21,39 @@
             <xpath expr="//field[@name='name']" position="after">
                 <field name="batch_payment_id"/>
             </xpath>
+            <xpath expr="//list//field[@name='invoice_date']" position="attributes">
+                <attribute name="options">{'numeric': true}</attribute>
+            </xpath>
+            <xpath expr="//list//field[@name='date']" position="attributes">
+                <attribute name="options">{'numeric': true}</attribute>
+            </xpath>
+
+        </field>
+    </record>
+    <record id="view_invoice_tree_inherit_numeric_date" model="ir.ui.view">
+        <field name="name">account.move.invoice.tree.numeric.date</field>
+        <field name="model">account.move</field>
+        <field name="inherit_id" ref="account.view_invoice_tree"/>
+        <field name="arch" type="xml">
+
+            <!-- First invoice_date (Vendor Bills) -->
+            <xpath expr="//list/field[@name='invoice_date'][1]" position="attributes">
+                <attribute name="options">{'numeric': true}</attribute>
+            </xpath>
+
+            <!-- Second invoice_date (Customer Invoices) -->
+            <xpath expr="//list/field[@name='invoice_date'][2]" position="attributes">
+                <attribute name="options">{'numeric': true}</attribute>
+            </xpath>
+
+            <xpath expr="//list/field[@name='date']" position="attributes">
+                <attribute name="options">{'numeric': true}</attribute>
+            </xpath>
+
+            <xpath expr="//list/field[@name='invoice_date_due']" position="attributes">
+                <attribute name="options">{'numeric': true}</attribute>
+            </xpath>
+
         </field>
     </record>
     <record id="action_tcs_details_repor_inherit" model="ir.ui.view">
@@ -81,65 +114,48 @@
         <field name="inherit_id" ref="account.view_move_form"/>
         <field name="arch" type="xml">
 
-            <!--            <xpath expr="//group/group[1]/field[@name='ref']" position="after">-->
-            <!--                <field name="partner_id_line"-->
-            <!--                       invisible="move_type in ('out_invoice', 'out_refund', 'in_invoice', 'in_refund', 'out_receipt', 'in_receipt') or custom_payment_type == 'outbound' or custom_payment_type == 'inbound'"/>-->
-            <!--            </xpath>-->
             <xpath expr="//group[@id='header_right_group']" position="inside">
                 <field name="batch_payment_id" invisible="move_type != 'entry'"/>
             </xpath>
 
 
             <xpath expr="(//field[@name='ref'])[1]" position="attributes">
+                <attribute name="string">PO NO</attribute>
+            </xpath>
+            <xpath expr="(//label[@for='ref'])[1]" position="attributes">
+                <attribute name="invisible">1</attribute>
+            </xpath>
+            <xpath expr="(//field[@name='ref'])[1]" position="attributes">
                 <attribute name="invisible">1</attribute>
             </xpath>
 
             <xpath expr="(//field[@name='ref'])[1]" position="after">
-                <field name="ref" string="PO NO"
-                       invisible="move_type not in ('out_invoice', 'in_invoice')"
+                <field name="ref" string="PO NO" invisible="move_type not in ('out_invoice', 'in_invoice')"
                        readonly="state != 'draft'"/>
-                <field name="po_date"
-                       options="{'numeric': true}"
-                       invisible="move_type not in ('out_invoice', 'in_invoice')"
-                       readonly="state != 'draft'"/>
+                <field name="po_date" options="{'numeric': true}"
+                       invisible="move_type not in ('out_invoice', 'in_invoice')" readonly="state != 'draft'"/>
                 <field name="service_date" required="move_type in ('out_invoice', 'out_refund')"
                        options="{'numeric': true}"/>
                 <field name="analytic_distribution_id"
                        invisible="move_type != 'out_invoice' and move_type != 'in_invoice'"
                        readonly="state == 'posted'"/>
-
-            </xpath>
-            <xpath expr="(//field[@name='fiscal_position_id'])[2]" position="attributes">
-                <attribute name="invisible">1</attribute>
-            </xpath>
-            <xpath expr="(//field[@name='fiscal_position_id'])[1]" position="attributes">
-                <attribute name="invisible">1</attribute>
-            </xpath>
-            <xpath expr="(//field[@name='payment_reference'])[2]" position="attributes">
-                <attribute name="invisible">1</attribute>
-            </xpath>
-
-            <xpath expr="//field[@name='invoice_date']" position="after">
-                <field name="payment_reference" invisible="move_type not in ('out_invoice', 'out_refund')"
-                       readonly="inalterable_hash" placeholder="Standard communication"/>
-
             </xpath>
 
 
-            <xpath expr="//div[@name='journal_div']" position="after">
-
+            <xpath expr="//field[@name='delivery_date']" position="after">
                 <field name="analytic_distribution_journal_id" invisible="move_type != 'entry'"
                        readonly="state == 'posted'"/>
                 <field name="analytics_plan_id" invisible="move_type != 'entry'" readonly="state == 'posted'"/>
-                <field name="fiscal_position_id" readonly="state in ['cancel', 'posted']"/>
-
-
             </xpath>
-
 
             <!--            <xpath expr="//field[@name='ref']" position="attributes">-->
             <!--                <attribute name="string">Memo</attribute>-->
             <!--            </xpath>-->
+
+            <xpath expr="(//field[@name='payment_reference'])[2]" position="attributes">
+                <attribute name="invisible">1</attribute>
+            </xpath>
+
 
             <xpath expr="(//field[@name='invoice_date'])[1]" position="attributes">
                 <attribute name="options">{'warn_future': true, 'numeric': true}</attribute>
@@ -157,10 +173,12 @@
                 <attribute name="options">{'numeric': true}</attribute>
             </xpath>
 
-            <!--            <xpath expr="//field[@name='ref']" position="after">-->
-            <!--                <field name="cheque_no" invisible="custom_payment_type != 'outbound'"/>-->
-            <!--                <field name="cheque_dt" invisible="custom_payment_type != 'outbound'"/>-->
-            <!--            </xpath>-->
+            <xpath expr="//field[@name='delivery_date']" position="before">
+                <field name="payment_reference" invisible="move_type not in ('out_invoice', 'out_refund')"
+                       readonly="inalterable_hash" placeholder="Standard communication"/>
+                <field name="fiscal_position_id" readonly="state in ['cancel', 'posted']"/>
+
+            </xpath>
 
             <xpath expr="//notebook/page[@name='invoice_tab']/field[@name='invoice_line_ids']/list/field[@name='product_id']"
                    position="attributes">
@@ -189,6 +207,32 @@
             </xpath>
             <xpath expr="//form[1]/sheet[1]/group[1]/group[2]/field[@name='partner_id']" position="attributes">
                 <attribute name="invisible">1</attribute>
+            </xpath>
+
+            <xpath expr="//group[@name='sale_info_group']//field[@name='delivery_date']" position="attributes">
+                <attribute name="options">{'numeric': true}</attribute>
+            </xpath>
+            <xpath expr="//group[@id='header_right_group']//field[@name='delivery_date']" position="attributes">
+                <attribute name="options">{'numeric': true}</attribute>
+            </xpath>
+
+            <xpath expr="//field[@name='taxable_supply_date']" position="attributes">
+                <attribute name="options">{'numeric': true}</attribute>
+            </xpath>
+            <xpath expr="//group[@name='accounting_info_group']//field[@name='auto_post_until']" position="attributes">
+                <attribute name="options">{'numeric': true}</attribute>
+            </xpath>
+            <xpath expr="//group[@name='misc_group']//field[@name='auto_post_until']" position="attributes">
+                <attribute name="options">{'numeric': true}</attribute>
+            </xpath>
+
+            <!-- Date fields inside line_ids (Journal Items tab / account.move.line) -->
+            <xpath expr="//field[@name='line_ids']/list/field[@name='date_maturity']" position="attributes">
+                <attribute name="options">{'numeric': true}</attribute>
+            </xpath>
+
+            <xpath expr="//field[@name='line_ids']/list/field[@name='discount_date']" position="attributes">
+                <attribute name="options">{'numeric': true}</attribute>
             </xpath>
         </field>
     </record>
