@@ -32,17 +32,21 @@
         <t t-call="web.html_container">
             <t t-foreach="docs" t-as="doc">
                 <t t-call="csspl_india.css_invoice_report_header_without_logo">
-                    <style>
-                        .header_text{
-                        font-size: 14px;
-                        }
-                        .content_text{
-                        font-size: 13px;
-                        }
-                        .center_text{
-                        text-align: center;
-                        }
-                    </style>
+<style>
+    .header_text{
+        font-size: 14px;
+        font-weight: 700 !important;
+    }
+    .content_text{
+        font-size: 13px;
+    }
+    .center_text{
+        text-align: center;
+    }
+    th{
+        font-weight: 700 !important;
+    }
+</style>
                     <div class="page">
                         <t t-set="cutoff_date" t-value="datetime.date(2025, 4, 1)"/>
                         <t t-set="current_date" t-value="doc.invoice_date"/>
@@ -61,39 +65,40 @@
                         </table>
 
                         <table style="border-collapse: collapse; width: 100%; margin-top: 35px">
-                            <t t-set="txn" t-value="doc.transaction_ids and doc.transaction_ids[0] or False"/>
 
-                            <tr>
-                                <td style="padding:5px;border: 1px solid;vertical-align: top;" colspan="4">
-                                    <span class="header_text">
-                                        <b>IRN:</b>
-                                    </span>
-                                    <t t-if="txn and txn.name">
-                                        <span t-esc="txn.name[:40]"/>
-                                        <t t-if="len(txn.name) &gt; 40">
-                                            <br/>
-                                            <span t-esc="txn.name[40:]"/>
-                                        </t>
-                                    </t>
-                                    <br/>
-                                    <span class="header_text">
-                                        <b>Ack No.:</b>
-                                    </span>
-                                    <span t-esc="txn and txn.ack_no or ''"/>
-                                    <br/>
-                                    <span class="header_text">
-                                        <b>Ack Date:</b>
-                                    </span>
-                                    <span t-esc="txn and txn.ack_date or ''"/>
-                                </td>
-                                <td style="padding:5px;border: 1px solid; text-align:center; vertical-align: middle;"
-                                    colspan="4">
-                                    <t t-if="txn and txn.qr_code">
-                                        <img t-att-src="'/report/barcode/?barcode_type=%s&amp;value=%s&amp;width=%s&amp;height=%s' % ('QR', txn.qr_code, 200, 200)"
-                                             style="max-width: 180px; max-height: 180px;"/>
-                                    </t>
-                                </td>
-                            </tr>
+                            <t t-set="l10n_in_einvoice_json" t-value="doc._get_l10n_in_edi_response_json() or {}"/>
+                            
+<tr>
+    <td style="padding:5px;border: 1px solid; vertical-align: top;" colspan="4">
+        <div>
+            <span class="header_text"><b>IRN:</b></span>
+            <span t-esc="l10n_in_einvoice_json.get('Irn') or (doc._fields.get('l10n_in_irn_number') and doc.l10n_in_irn_number) or ''"/>
+        </div>
+        <div>
+            <span class="header_text"><b>Ack No.:</b></span>
+            <span t-esc="l10n_in_einvoice_json.get('AckNo') or (doc._fields.get('l10n_in_ack_no') and doc.l10n_in_ack_no) or ''"/>
+        </div>
+        <div>
+            <span class="header_text"><b>Ack Date:</b></span>
+            <span t-esc="l10n_in_einvoice_json.get('AckDt') or (doc._fields.get('l10n_in_ack_date') and doc.l10n_in_ack_date) or ''"/>
+        </div>
+    </td>
+
+    <td style="padding:5px; border: 1px solid; text-align:center; vertical-align: middle;" colspan="4">
+        <t t-if="l10n_in_einvoice_json.get('SignedQRCode')">
+            <img t-att-src="'/report/barcode/?barcode_type=%s&amp;value=%s&amp;width=%s&amp;height=%s&amp;quiet=%s' % ('QR', l10n_in_einvoice_json.get('SignedQRCode'), 500, 500, 0)"
+                 style="max-width: 180px; max-height: 180px;"/>
+        </t>
+        <t t-elif="doc._fields.get('l10n_in_edi_qr_image') and doc.l10n_in_edi_qr_image">
+            <img t-att-src="image_data_uri(doc.l10n_in_edi_qr_image)"
+                 style="max-width: 180px; max-height: 180px;"/>
+        </t>
+        <t t-else="">
+            <span class="content_text"> </span>
+        </t>
+    </td>
+</tr>
+
                             <tr>
                                 <td style="border: 1px solid;" colspan="2">
                                     <strong style="padding: 5px" class="header_text">
@@ -112,11 +117,11 @@
                                     <span t-esc="doc.invoice_date" t-options="{'widget': 'date'}" class="content_text"
                                           style="padding: 5px"/>
                                 </td>
-                                <td style="border: 1px solid; vertical-align: text-top;" colspan="2">
-                                    <strong style="padding: 5px" class="header_text">Buyer Order No:</strong>
-                                    <br/>
-                                    <span style="padding: 5px" t-esc="doc.po_no" class="content_text"/>
-                                </td>
+<td style="border: 1px solid; vertical-align: text-top;" colspan="2">
+    <strong style="padding: 5px" class="header_text">Buyer Order No:</strong>
+    <br/>
+    <span style="padding: 5px" t-esc="doc.ref or ''" class="content_text"/>
+</td>
                                 <td style="border: 1px solid; vertical-align: text-top;" colspan="2">
                                     <strong style="padding: 5px" class="header_text">Date:</strong>
                                     <br/>

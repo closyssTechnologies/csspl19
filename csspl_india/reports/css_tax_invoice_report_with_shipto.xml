@@ -338,167 +338,215 @@
                         </div>
 
                         <table style="width: 100%; border-collapse: collapse">
+
+                            <!-- Amount in words -->
                             <tr>
                                 <td class="content_text" colspan="12" style="border: 1px solid">
-                                    <span style=" padding: 5px" class="header_text">Amount Chargeable (in words) :
-                                    </span>
+                                    <span style="padding: 5px" class="header_text">Amount Chargeable (in words):</span>
+
                                     <t t-if="doc.currency_id.name == 'INR'">
-                                        <!--                                        <strong class="content_text" style="text-transform: capitalize;"-->
-                                        <!--                                                t-esc="doc.amt.replace(',', '')"/> -->
                                         <strong class="content_text" style="text-transform: capitalize;"
                                                 t-esc="doc.convert_num_to_text(doc.amount_total_signed)"/>
-                                        <!--                                        <strong class="content_text">Paise only</strong>-->
                                     </t>
                                     <t t-else="">
                                         <strong class="content_text"
                                                 t-esc="doc.currency_id.amount_to_text(doc.amount_total).replace(',', '')"/>
-                                        <strong class="content_text">only</strong>
+                                        <strong>only</strong>
                                     </t>
                                 </td>
                             </tr>
+
+                            <!-- HEADER -->
                             <tr>
-                                <th style="border: 1px solid" rowspan="2">
-                                    <strong style=" padding: 2px" class="header_text">Sr. No</strong>
-                                </th>
-                                <th style="border: 1px solid" rowspan="2" colspan="3">
-                                    <strong style=" padding: 2px" class="header_text">HSN/SAC</strong>
-                                </th>
-                                <th style="border: 1px solid" rowspan="2">
-                                    <strong style=" padding: 2px" class="header_text">Taxable Value</strong>
-                                </th>
-                                <th colspan="2" style="border: 1px solid">
-                                    <strong style=" padding: 2px" class="header_text">Central Tax</strong>
-                                </th>
-                                <th colspan="2" style="border: 1px solid">
-                                    <strong style=" padding: 2px" class="header_text">State Tax</strong>
-                                </th>
-                                <th colspan="2" style="border: 1px solid">
-                                    <strong style=" padding: 2px" class="header_text">IGST Tax</strong>
-                                </th>
-                                <th style="border: 1px solid" rowspan="2">
-                                    <strong style=" padding: 2px" class="header_text">Total Tax Amt</strong>
-                                </th>
-                            </tr>
-                            <tr>
-                                <!--                            CGST -->
-                                <th style="border: 1px solid">
-                                    <strong style=" padding: 5px" class="header_text">Rate</strong>
-                                </th>
-                                <th style="border: 1px solid">
-                                    <strong style=" padding: 5px" class="header_text">Amount</strong>
-                                </th>
-                                <!--                            SGST -->
-                                <th style="border: 1px solid">
-                                    <strong style=" padding: 5px" class="header_text">Rate</strong>
-                                </th>
-                                <th style="border: 1px solid">
-                                    <strong style=" padding: 5px" class="header_text">Amount</strong>
-                                </th>
-                                <!--                            IGST -->
-                                <th style="border: 1px solid">
-                                    <strong style=" padding: 5px" class="header_text">Rate</strong>
-                                </th>
-                                <th style="border: 1px solid">
-                                    <strong style=" padding: 5px" class="header_text">Amount</strong>
-                                </th>
+                                <th style="border: 1px solid;text-align:center;" rowspan="2">Sr. No</th>
+                                <th style="border: 1px solid;text-align:center;" rowspan="2" colspan="3">HSN/SAC</th>
+                                <th style="border: 1px solid;text-align:center;" rowspan="2">Taxable Value</th>
+
+                                <th colspan="2" style="border: 1px solid;text-align:center;">Central Tax</th>
+                                <th colspan="2" style="border: 1px solid;text-align:center;">State Tax</th>
+                                <th colspan="2" style="border: 1px solid;text-align:center;">IGST Tax</th>
+
+                                <th style="border: 1px solid;text-align:center;" rowspan="2">Total Tax Amt</th>
                             </tr>
 
-                            <!--                        this is for second table HSN code and gst charges -->
-                            <t t-set="sq_no" t-value="1"/>
-                            <t t-set="total_cgst" t-value="0"/>
-                            <t t-set="total_sgst" t-value="0"/>
-                            <t t-set="total_igst" t-value="0"/>
-                            <t t-set="total_amount_taxable" t-value="0"/>
-                            <t t-set="total_amount" t-value="0"/>
-                            <t t-set="igst" t-value="0"/>
-                            <t t-set="hsn_summary"
-                               t-value="doc.invoice_line_ids.filtered(lambda l: not l.display_type and l.product_id and (l.product_id.l10n_in_hsn_code or l.product_id.product_tmpl_id.l10n_in_hsn_code))"/>
+                            <tr>
+                                <th style="border: 1px solid">Rate</th>
+                                <th style="border: 1px solid">Amount</th>
 
-                            <t t-foreach="hsn_summary" t-as="line">
+                                <th style="border: 1px solid">Rate</th>
+                                <th style="border: 1px solid">Amount</th>
+
+                                <th style="border: 1px solid">Rate</th>
+                                <th style="border: 1px solid">Amount</th>
+                            </tr>
+
+                            <!-- FETCH SUMMARY -->
+                            <t t-set="hsn_summary" t-value="doc._l10n_in_get_hsn_summary_table()"/>
+
+                            <t t-if="hsn_summary and hsn_summary.get('items')">
+
+                                <t t-set="sq_no" t-value="1"/>
+
+                                <!-- LOOP -->
+                                <t t-foreach="hsn_summary.get('items')" t-as="item">
+
+                                    <tr>
+                                        <!-- Sr No -->
+                                        <td style="border: 1px solid" class="center_text">
+                                            <span t-esc="sq_no"/>
+                                            <t t-set="sq_no" t-value="sq_no + 1"/>
+                                        </td>
+
+                                        <!-- HSN -->
+                                        <td colspan="3" style="border: 1px solid" class="center_text">
+                                            <span t-esc="item.get('l10n_in_hsn_code', '')"/>
+                                        </td>
+
+                                        <!-- Taxable -->
+                                        <td style="border: 1px solid" class="center_text">
+                                            <span t-esc="item.get('amount_untaxed', 0.0)"
+                                                  t-options="{'widget': 'monetary', 'display_currency': doc.currency_id}"/>
+                                        </td>
+
+                                        <!-- CGST Rate -->
+                                        <td style="border: 1px solid" class="center_text">
+                                            <span t-esc="(item.get('rate', 0.0) / 2) if hsn_summary.get('has_gst') else 0"/>
+                                        </td>
+
+                                        <!-- CGST Amount -->
+                                        <td style="border: 1px solid" class="center_text">
+                                            <span t-esc="item.get('tax_amount_cgst', 0.0)"
+                                                  t-options="{'widget': 'monetary', 'display_currency': doc.currency_id}"/>
+                                        </td>
+
+                                        <!-- SGST Rate -->
+                                        <td style="border: 1px solid" class="center_text">
+                                            <span t-esc="(item.get('rate', 0.0) / 2) if hsn_summary.get('has_gst') else 0"/>
+                                        </td>
+
+                                        <!-- SGST Amount -->
+                                        <td style="border: 1px solid" class="center_text">
+                                            <span t-esc="item.get('tax_amount_sgst', 0.0)"
+                                                  t-options="{'widget': 'monetary', 'display_currency': doc.currency_id}"/>
+                                        </td>
+
+                                        <!-- IGST Rate -->
+                                        <td style="border: 1px solid" class="center_text">
+                                            <span t-esc="item.get('rate', 0.0) if hsn_summary.get('has_igst') else 0"/>
+                                        </td>
+
+                                        <!-- IGST Amount -->
+                                        <td style="border: 1px solid" class="center_text">
+                                            <span t-esc="item.get('tax_amount_igst', 0.0)"
+                                                  t-options="{'widget': 'monetary', 'display_currency': doc.currency_id}"/>
+                                        </td>
+
+                                        <!-- TOTAL TAX -->
+                                        <td style="border: 1px solid" class="center_text">
+                                            <span t-esc="
+                        item.get('tax_amount_cgst', 0.0)
+                        + item.get('tax_amount_sgst', 0.0)
+                        + item.get('tax_amount_igst', 0.0)
+                        + item.get('tax_amount_cess', 0.0)
+                    "
+                                                  t-options="{'widget': 'monetary', 'display_currency': doc.currency_id}"/>
+                                        </td>
+                                    </tr>
+
+                                </t>
+
+                                <!-- TOTAL ROW -->
                                 <tr>
-                                    <td>
-                                        <span t-esc="(line.product_id.l10n_in_hsn_code or line.product_id.product_tmpl_id.l10n_in_hsn_code or '')"/>
+                                    <td colspan="4" style="border: 1px solid" class="text-right">
+                                        <strong>Total</strong>
                                     </td>
-                                    <td>
-                                        <span t-esc="line.quantity"/>
+
+                                    <!-- Taxable -->
+                                    <td style="border: 1px solid" class="center_text">
+                                        <span t-esc="sum([i.get('amount_untaxed', 0.0) for i in hsn_summary.get('items')])"
+                                              t-options="{'widget': 'monetary', 'display_currency': doc.currency_id}"/>
                                     </td>
-                                    <td>
-                                        <span t-esc="line.price_subtotal"/>
+
+                                    <td style="border: 1px solid"></td>
+
+                                    <!-- CGST -->
+                                    <td style="border: 1px solid" class="center_text">
+                                        <span t-esc="sum([i.get('tax_amount_cgst', 0.0) for i in hsn_summary.get('items')])"
+                                              t-options="{'widget': 'monetary', 'display_currency': doc.currency_id}"/>
+                                    </td>
+
+                                    <td style="border: 1px solid"></td>
+
+                                    <!-- SGST -->
+                                    <td style="border: 1px solid" class="center_text">
+                                        <span t-esc="sum([i.get('tax_amount_sgst', 0.0) for i in hsn_summary.get('items')])"
+                                              t-options="{'widget': 'monetary', 'display_currency': doc.currency_id}"/>
+                                    </td>
+
+                                    <td style="border: 1px solid"></td>
+
+                                    <!-- IGST -->
+                                    <td style="border: 1px solid" class="center_text">
+                                        <span t-esc="sum([i.get('tax_amount_igst', 0.0) for i in hsn_summary.get('items')])"
+                                              t-options="{'widget': 'monetary', 'display_currency': doc.currency_id}"/>
+                                    </td>
+
+                                    <!-- TOTAL TAX -->
+                                    <td style="border: 1px solid" class="center_text">
+                                        <span t-esc="sum([
+                    i.get('tax_amount_cgst', 0.0)
+                    + i.get('tax_amount_sgst', 0.0)
+                    + i.get('tax_amount_igst', 0.0)
+                    + i.get('tax_amount_cess', 0.0)
+                    for i in hsn_summary.get('items')
+                ])"
+                                              t-options="{'widget': 'monetary', 'display_currency': doc.currency_id}"/>
                                     </td>
                                 </tr>
+
                             </t>
-                            <tr>
-                                <td colspan="4" style="border: 1px solid" class="text-right">
-                                    <strong style=" padding: 5px" class="header_text">Total</strong>
-                                </td>
-                                <td style="border: 1px solid" class="center_text">
-                                    <span t-esc="total_amount_taxable" class="content_text"
-                                          t-options='{"widget": "float", "precision": 2}'/>
-                                </td>
-                                <td style="border: 1px solid"></td>
-                                <td style="border: 1px solid" class="center_text">
-                                    <span t-esc="total_cgst" class="content_text"
-                                          t-options='{"widget": "float", "precision": 2}'/>
-                                </td>
-                                <td style="border: 1px solid"></td>
-                                <td style="border: 1px solid" class="center_text">
-                                    <span t-esc="total_sgst" class="content_text"
-                                          t-options='{"widget": "float", "precision": 2}'/>
-                                </td>
 
-                                <!--                            igst-->
-                                <td style="border: 1px solid"></td>
-                                <td style="border: 1px solid" class="center_text">
-                                    <span t-esc="total_igst" class="content_text"
-                                          t-options='{"widget": "float", "precision": 2}'/>
-                                </td>
-
-                                <td style="border: 1px solid" class="center_text">
-                                    <span t-esc="total_amount" class="content_text"
-                                          t-options='{"widget": "float", "precision": 2}'/>
-                                </td>
-                            </tr>
+                            <!-- Tax Amount in words -->
                             <tr>
                                 <td colspan="12" style="border-left: 1px solid;border-right: 1px solid;">
-                                    <strong style=" padding: 5px" class="header_text">Tax Amount (In Words) :</strong>
-                                    <!--                                    <strong class="content_text" style="text-transform: capitalize;"-->
-                                    <!--                                            t-esc="doc.tot_amt_in_words(round(total_amount, 2))"/> &#160; <b>only</b>-->
-                                    <strong class="content_text" style="text-transform: capitalize;"
-                                            t-esc="doc.convert_num_to_text(round(total_amount, 2))"/>
-                                    <br/>
-                                    <strong style=" padding: 5px" class="header_text">
-                                        Narration:
-                                    </strong>
-                                    <br/>
-                                    <strong style=" padding: 5px">
-                                        <span t-esc="doc.narration" class="content_text"/>
-                                    </strong>
+                                    <strong style="padding: 5px">Tax Amount (In Words):</strong>
+
+                                    <strong style="text-transform: capitalize;"
+                                            t-esc="doc.convert_num_to_text(doc.amount_tax)"/>
+
                                     <br/>
 
+                                    <strong style="padding: 5px">Narration:</strong>
+                                    <br/>
+
+                                    <span t-esc="doc.narration"/>
                                 </td>
                             </tr>
+
+                            <!-- Declaration -->
                             <tr>
-                                <td colspan="6" style="border:1px solid;border-top: none;vertical-align: text-top;">
-                                    <strong style="padding: 5px" class="header_text">
-                                        <u>
-                                            Declaration
-                                        </u>
+                                <td colspan="6" style="border:1px solid;border-top: none;">
+                                    <strong>
+                                        <u>Declaration</u>
                                         <br/>
-                                        <a style="padding: 5px">
-                                            We declare that this invoice shows the actual price of the goods/services
-                                            described
-                                            and
-                                            that
-                                            all particulars are true and correct.
-                                            <br/>
-                                            Reverse Charge Mechanism - No
-                                        </a>
+                                        We declare that this invoice shows the actual price of the goods/services
+                                        described
+                                        and that all particulars are true and correct.
+                                        <br/>
+                                        Reverse Charge Mechanism - No
                                     </strong>
                                 </td>
+
                                 <td colspan="6" style="border:1px solid">
                                     <b>From
-                                        <span t-field="doc.company_id.name"/>
+                                        <t t-if="current_date &lt; cutoff_date">
+                                            Clear Secured Service Pvt Ltd.
+                                        </t>
+                                        <t t-else="">
+                                            <span t-esc="doc.company_id.name"/>
+                                        </t>
                                     </b>
+
                                     <br/>
                                     <br/>
                                     <br/>
