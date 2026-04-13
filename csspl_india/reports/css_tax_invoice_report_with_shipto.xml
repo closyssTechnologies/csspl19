@@ -60,31 +60,41 @@
                         <table style="border-collapse: collapse; width: 100%">
                             <t t-set="txn" t-value="doc.transaction_ids and doc.transaction_ids[0] or False"/>
 
+                            <t t-set="l10n_in_einvoice_json" t-value="doc._get_l10n_in_edi_response_json() or {}"/>
                             <tr>
-                                <td style="padding:5px;border: 1px solid;vertical-align: top;" colspan="4">
-                                    <span class="header_text">
-                                        <b>IRN:</b>
-                                    </span>
-                                    <t t-if="txn and txn.name">
-                                        <span t-esc="txn.name[:40]"/>
-                                        <br/>
-                                        <span t-esc="txn.name[40:]"/>
-                                    </t>
-                                    <br/>
-                                    <span class="header_text">
-                                        <b>Ack No.:</b>
-                                    </span>
-                                    <span t-esc="txn and txn.ack_no or ''"/>
-                                    <br/>
-                                    <span class="header_text">
-                                        <b>Ack Date:</b>
-                                    </span>
-                                    <span t-esc="txn and txn.ack_date or ''"/>
+                                <td style="padding:5px;border: 1px solid; vertical-align: top;" colspan="4">
+                                    <div>
+                                        <span class="header_text">
+                                            <b>IRN:</b>
+                                        </span>
+                                        <span t-esc="l10n_in_einvoice_json.get('Irn') or (doc._fields.get('l10n_in_irn_number') and doc.l10n_in_irn_number) or ''"/>
+                                    </div>
+                                    <div>
+                                        <span class="header_text">
+                                            <b>Ack No.:</b>
+                                        </span>
+                                        <span t-esc="l10n_in_einvoice_json.get('AckNo') or (doc._fields.get('l10n_in_ack_no') and doc.l10n_in_ack_no) or ''"/>
+                                    </div>
+                                    <div>
+                                        <span class="header_text">
+                                            <b>Ack Date:</b>
+                                        </span>
+                                        <span t-esc="l10n_in_einvoice_json.get('AckDt') or (doc._fields.get('l10n_in_ack_date') and doc.l10n_in_ack_date) or ''"/>
+                                    </div>
                                 </td>
-                                <td style="padding:5px;border: 1px solid; text-align:center;" colspan="4">
-                                    <t t-if="txn and txn.qr_code">
-                                        <img t-att-src="'/report/barcode/?barcode_type=%s&amp;value=%s&amp;width=%s&amp;height=%s' % ('QR', txn.qr_code, 200, 200)"
-                                             style="max-width: 150px; max-height: 150px;"/>
+
+                                <td style="padding:5px; border: 1px solid; text-align:center; vertical-align: middle;"
+                                    colspan="4">
+                                    <t t-if="l10n_in_einvoice_json.get('SignedQRCode')">
+                                        <img t-att-src="'/report/barcode/?barcode_type=%s&amp;value=%s&amp;width=%s&amp;height=%s&amp;quiet=%s' % ('QR', l10n_in_einvoice_json.get('SignedQRCode'), 500, 500, 0)"
+                                             style="max-width: 180px; max-height: 180px;"/>
+                                    </t>
+                                    <t t-elif="doc._fields.get('l10n_in_edi_qr_image') and doc.l10n_in_edi_qr_image">
+                                        <img t-att-src="image_data_uri(doc.l10n_in_edi_qr_image)"
+                                             style="max-width: 180px; max-height: 180px;"/>
+                                    </t>
+                                    <t t-else="">
+                                        <span class="content_text"/>
                                     </t>
                                 </td>
                             </tr>
@@ -184,21 +194,56 @@
                             <tr>
                                 <td style="border: 1px solid;width:33.33%" colspan="2">
                                     <strong>
-                                        <span style="padding: 5px" class="header_text" t-esc="doc.company_id.name"/>
+                                        <span style="padding: 5px" class="header_text"
+                                              t-esc="doc.company_id.parent_id.name or doc.company_id.name"/>
                                     </strong>
                                     <br/>
-                                    <span style="padding: 5px" class="content_text">
-                                        <span t-esc="doc.company_id.partner_id.street or ''"/>
-                                        <span t-esc="doc.company_id.partner_id.street2 or ''"/>
+                                    <span class="content_text" style="padding: 5px; display: block;">
+
+                                        <!-- Street -->
+                                        <t t-if="doc.company_id.partner_id.street">
+                                            <span t-esc="doc.company_id.partner_id.street"/>
+                                            <br/>
+                                        </t>
+
+                                        <!-- Street2 -->
+                                        <t t-if="doc.company_id.partner_id.street2">
+                                            <span t-esc="doc.company_id.partner_id.street2"/>
+                                            <br/>
+                                        </t>
+
+                                        <!-- City + State + Zip (single line) -->
+                                        <t t-if="doc.company_id.partner_id.city or doc.company_id.partner_id.state_id or doc.company_id.partner_id.zip">
+                                            <span t-esc="doc.company_id.partner_id.city or ''"/>
+                                            <t t-if="doc.company_id.partner_id.state_id">
+                                                ,
+                                                <span t-esc="doc.company_id.partner_id.state_id.name"/>
+                                            </t>
+                                            <t t-if="doc.company_id.partner_id.zip">
+                                                -
+                                                <span t-esc="doc.company_id.partner_id.zip"/>
+                                            </t>
+                                            <br/>
+                                        </t>
+
+                                    </span>
+
+                                    <!-- GST -->
+                                    <t t-if="doc.company_id.partner_id.vat">
+                                        <span class="header_text" style="padding: 5px;">GST No:</span>
+                                        <span class="content_text" t-esc="doc.company_id.partner_id.vat"/>
                                         <br/>
-                                        <span style="padding: 5px" t-esc="doc.company_id.partner_id.city or ''"/>
-                                        <span t-esc="doc.company_id.partner_id.state_id.name or ''"/>
-                                        <span t-esc="doc.company_id.partner_id.zip or ''"/>
-                                    </span>
-                                    <br/>
-                                    <span style="padding: 5px" class="header_text">GST No:
-                                        <span class="content_text" t-esc="doc.company_id.partner_id.vat or ''"/>
-                                    </span>
+                                    </t>
+
+                                    <!-- State -->
+                                    <t t-if="doc.company_id.partner_id.state_id">
+                                        <span class="header_text" style="padding: 5px;">State Name:</span>
+                                        <span class="content_text" t-esc="doc.company_id.partner_id.state_id.name"/>
+                                        <br/>
+                                    </t>
+                                    <span style="padding: 5px" class="header_text">UDYAM NO:</span>
+                                    <span class="content_text">MH-19-0171004</span>
+
                                 </td>
 
                                 <td style="border: 1px solid;width:33.33%;padding: 5px" colspan="3">
@@ -245,61 +290,123 @@
                             </tr>
 
                             <tr>
-                                <th style="border: 1px solid;" class="header_text">Sr No.</th>
-                                <th style="border: 1px solid;" class="header_text">Description</th>
-                                <th style="border: 1px solid;" class="header_text">HSN/SAC</th>
-                                <th style="border: 1px solid;" class="header_text">GST Rate</th>
-                                <th style="border: 1px solid;" class="header_text">Qty</th>
-                                <th style="border: 1px solid;" class="header_text">Price</th>
-                                <th style="border: 1px solid;" class="header_text">Tax Amt</th>
-                                <th style="border: 1px solid;" class="header_text">Total</th>
+                                <th style="border: 1px solid;text-align:center;font-weight:bold;" class="header_text">Sr
+                                    No.
+                                </th>
+                                <th style="border: 1px solid;text-align:center;font-weight:bold;" class="header_text">
+                                    Description Of
+                                    Service
+                                </th>
+                                <th style="border: 1px solid;text-align:center;font-weight:bold;" class="header_text">
+                                    HSN/SAC
+                                </th>
+                                <th style="border: 1px solid;text-align:center;font-weight:bold;" class="header_text">
+                                    GST Rate
+                                </th>
+                                <th style="border: 1px solid;text-align:center;font-weight:bold;" class="header_text">
+                                    Quantity
+                                </th>
+                                <th style="border: 1px solid;text-align:center;font-weight:bold;" class="header_text">
+                                    Unit Price
+                                </th>
+                                <th style="border: 1px solid;text-align:center;font-weight:bold;" class="header_text">
+                                    Tax amt
+                                </th>
+                                <th style="border: 1px solid;text-align:center;font-weight:bold;" class="header_text">
+                                    Total
+                                </th>
                             </tr>
 
                             <t t-set="sq_no" t-value="1"/>
+                            <t t-set="total" t-value="0.0"/>
+
                             <t t-foreach="doc.invoice_line_ids" t-as="line">
-                                <t t-if="not line.display_type">
-                                    <t t-set="taxes"
-                                       t-value="line.tax_ids.compute_all(line.price_unit * (1 - (line.discount or 0.0) / 100.0), doc.currency_id, line.quantity, line.product_id, doc.partner_id)"/>
+                                <t t-if="line.display_type != 'line_section' and line.display_type != 'line_note'">
+                                    <t t-set="tax_data"
+                                       t-value="line.tax_ids.compute_all(                                 line.price_unit * (1 - (line.discount or 0.0) / 100.0),                                 currency=doc.currency_id,                                 quantity=line.quantity,                                 product=line.product_id,                                 partner=doc.partner_id                            )"/>
+
+                                    <t t-set="line_tax_amt"
+                                       t-value="tax_data['total_included'] - tax_data['total_excluded']"/>
+                                    <t t-set="line_total_amt" t-value="tax_data['total_included']"/>
+
                                     <tr>
                                         <td style="border: 1px solid" class="text-center">
-                                            <span t-esc="sq_no"/>
-                                            <t t-set="sq_no" t-value="sq_no + 1"/>
+                                            <center>
+                                                <span t-esc="sq_no" class="content_text"/>
+                                                <t t-set="sq_no" t-value="sq_no + 1"/>
+                                            </center>
                                         </td>
-                                        <td style="border: 1px solid">
-                                            <span t-esc="line.product_id.name or line.name"/>
-                                        </td>
+
                                         <td style="border: 1px solid" class="text-center">
-                                            <span t-esc="line.product_id.l10n_in_hsn_code or ''"/>
+                                            <center>
+                                                <span t-esc="line.product_id.name or line.name" class="content_text"/>
+                                            </center>
                                         </td>
+
                                         <td style="border: 1px solid" class="text-center">
-                                            <span t-esc="', '.join(map(lambda x: (x.description or x.name), line.tax_ids))"/>
+                                            <center>
+                                                <span t-esc="line.l10n_in_hsn_code or line.product_id.l10n_in_hsn_code or line.product_id.product_tmpl_id.l10n_in_hsn_code or ''"
+                                                      class="content_text"/>
+                                            </center>
                                         </td>
-                                        <td style="border: 1px solid" class="text-right">
-                                            <span t-esc="line.quantity"/>
+
+                                        <td style="vertical-align: top; border: 1px solid;" name="td_gst"
+                                            class="text-center align-top nowrap">
+                                            <span t-esc="', '.join(line.tax_ids.mapped('name')) or '--'"
+                                                  class="content_text"/>
                                         </td>
-                                        <td style="border: 1px solid" class="text-right">
-                                            <span t-esc="line.price_unit"
-                                                  t-options='{"widget": "float", "precision": 2}'/>
+
+                                        <td style="border: 1px solid" class="text-center">
+                                            <center>
+                                                <span t-esc="line.quantity" class="content_text"/>
+                                            </center>
                                         </td>
-                                        <td style="border: 1px solid" class="text-right">
-                                            <span t-esc="taxes['total_included'] - taxes['total_excluded']"
-                                                  t-options='{"widget": "float", "precision": 2}'/>
+
+                                        <td style="border: 1px solid" class="text-center">
+                                            <span t-esc="line.price_unit" class="content_text"
+                                                  t-options="{&quot;widget&quot;: &quot;float&quot;, &quot;precision&quot;: 2}"/>
                                         </td>
-                                        <td style="border: 1px solid" class="text-right">
-                                            <span t-esc="taxes['total_included']"
-                                                  t-options='{"widget": "float", "precision": 2}'/>
+
+                                        <td style="border: 1px solid" class="text-center">
+                                            <center>
+                                                <span t-esc="line_tax_amt"
+                                                      t-options="{&quot;widget&quot;: &quot;float&quot;, &quot;precision&quot;: 2}"
+                                                      class="content_text"/>
+                                            </center>
                                         </td>
-                                    </tr>
-                                </t>
-                                <t t-if="line.display_type in ('line_section', 'line_note')">
-                                    <tr>
-                                        <td colspan="8" style="border: 1px solid; padding: 5px;">
-                                            <span t-field="line.name"/>
+
+                                        <td style="border: 1px solid" class="text-center">
+                                            <center>
+                                                <span t-esc="line_total_amt" class="content_text"
+                                                      t-options="{&quot;widget&quot;: &quot;float&quot;, &quot;precision&quot;: 2}"/>
+                                                <t t-set="total" t-value="total + line_total_amt"/>
+                                            </center>
                                         </td>
                                     </tr>
                                 </t>
                             </t>
                         </table>
+                        <t t-if="doc.invoice_line_ids.filtered(lambda l: l.display_type == 'line_section' or l.display_type == 'line_note')">
+                            <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
+                                <t t-foreach="doc.invoice_line_ids" t-as="line">
+                                    <t t-if="line.display_type == 'line_section' or line.display_type == 'line_note'">
+                                        <tr>
+                                            <td style="border: 1px solid; padding: 5px;">
+                                                <t t-if="line.display_type == 'line_section'">
+                                                    <strong>
+                                                        <span t-esc="line.product_id.name or '--'"/>
+                                                    </strong>
+                                                </t>
+                                                <t t-elif="line.display_type == 'line_note'">
+                                                    <span t-esc="line.name or line.display_name or line.product_id.display_name or '--'"/>
+                                                </t>
+                                            </td>
+                                        </tr>
+                                    </t>
+                                </t>
+                            </table>
+                        </t>
+
                         <div class="clearfix mb-4 mt-4">
                             <div id="total" class="row">
                                 <div class="col">
@@ -358,15 +465,27 @@
 
                             <!-- HEADER -->
                             <tr>
-                                <th style="border: 1px solid;text-align:center;" rowspan="2">Sr. No</th>
-                                <th style="border: 1px solid;text-align:center;" rowspan="2" colspan="3">HSN/SAC</th>
-                                <th style="border: 1px solid;text-align:center;" rowspan="2">Taxable Value</th>
+                                <th style="border: 1px solid;text-align:center;font-weight:bold;" rowspan="2">Sr. No
+                                </th>
+                                <th style="border: 1px solid;text-align:center;font-weight:bold;" rowspan="2"
+                                    colspan="3">HSN/SAC
+                                </th>
+                                <th style="border: 1px solid;text-align:center;font-weight:bold;" rowspan="2">Taxable
+                                    Value
+                                </th>
 
-                                <th colspan="2" style="border: 1px solid;text-align:center;">Central Tax</th>
-                                <th colspan="2" style="border: 1px solid;text-align:center;">State Tax</th>
-                                <th colspan="2" style="border: 1px solid;text-align:center;">IGST Tax</th>
+                                <th colspan="2" style="border: 1px solid;text-align:center;font-weight:bold;">Central
+                                    Tax
+                                </th>
+                                <th colspan="2" style="border: 1px solid;text-align:center;font-weight:bold;">State
+                                    Tax
+                                </th>
+                                <th colspan="2" style="border: 1px solid;text-align:center;font-weight:bold;">IGST Tax
+                                </th>
 
-                                <th style="border: 1px solid;text-align:center;" rowspan="2">Total Tax Amt</th>
+                                <th style="border: 1px solid;text-align:center;font-weight:bold;" rowspan="2">Total Tax
+                                    Amt
+                                </th>
                             </tr>
 
                             <tr>
@@ -443,12 +562,7 @@
 
                                         <!-- TOTAL TAX -->
                                         <td style="border: 1px solid" class="center_text">
-                                            <span t-esc="
-                        item.get('tax_amount_cgst', 0.0)
-                        + item.get('tax_amount_sgst', 0.0)
-                        + item.get('tax_amount_igst', 0.0)
-                        + item.get('tax_amount_cess', 0.0)
-                    "
+                                            <span t-esc="                         item.get('tax_amount_cgst', 0.0)                         + item.get('tax_amount_sgst', 0.0)                         + item.get('tax_amount_igst', 0.0)                         + item.get('tax_amount_cess', 0.0)                     "
                                                   t-options="{'widget': 'monetary', 'display_currency': doc.currency_id}"/>
                                         </td>
                                     </tr>
@@ -467,7 +581,7 @@
                                               t-options="{'widget': 'monetary', 'display_currency': doc.currency_id}"/>
                                     </td>
 
-                                    <td style="border: 1px solid"></td>
+                                    <td style="border: 1px solid"/>
 
                                     <!-- CGST -->
                                     <td style="border: 1px solid" class="center_text">
@@ -475,7 +589,7 @@
                                               t-options="{'widget': 'monetary', 'display_currency': doc.currency_id}"/>
                                     </td>
 
-                                    <td style="border: 1px solid"></td>
+                                    <td style="border: 1px solid"/>
 
                                     <!-- SGST -->
                                     <td style="border: 1px solid" class="center_text">
@@ -483,7 +597,7 @@
                                               t-options="{'widget': 'monetary', 'display_currency': doc.currency_id}"/>
                                     </td>
 
-                                    <td style="border: 1px solid"></td>
+                                    <td style="border: 1px solid"/>
 
                                     <!-- IGST -->
                                     <td style="border: 1px solid" class="center_text">
@@ -493,13 +607,7 @@
 
                                     <!-- TOTAL TAX -->
                                     <td style="border: 1px solid" class="center_text">
-                                        <span t-esc="sum([
-                    i.get('tax_amount_cgst', 0.0)
-                    + i.get('tax_amount_sgst', 0.0)
-                    + i.get('tax_amount_igst', 0.0)
-                    + i.get('tax_amount_cess', 0.0)
-                    for i in hsn_summary.get('items')
-                ])"
+                                        <span t-esc="sum([                     i.get('tax_amount_cgst', 0.0)                     + i.get('tax_amount_sgst', 0.0)                     + i.get('tax_amount_igst', 0.0)                     + i.get('tax_amount_cess', 0.0)                     for i in hsn_summary.get('items')                 ])"
                                               t-options="{'widget': 'monetary', 'display_currency': doc.currency_id}"/>
                                     </td>
                                 </tr>
@@ -537,13 +645,13 @@
                                     </strong>
                                 </td>
 
-                                <td colspan="6" style="border:1px solid">
+                                <td colspan="6" style="border:1px solid;padding-left: 10px;">
                                     <b>From
-                                        <t t-if="current_date &lt; cutoff_date">
+                                        <t t-if="current_date and cutoff_date and current_date &lt; cutoff_date">
                                             Clear Secured Service Pvt Ltd.
                                         </t>
                                         <t t-else="">
-                                            <span t-esc="doc.company_id.name"/>
+                                            <span t-esc="doc.company_id.parent_id.name or doc.company_id.name"/>
                                         </t>
                                     </b>
 
