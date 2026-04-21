@@ -2,10 +2,6 @@ from odoo import fields,api,_,models
 from odoo.exceptions import ValidationError, UserError
 from num2words import num2words
 import re
-from odoo.exceptions import ValidationError, UserError
-from num2words import num2words
-import re
-import datetime
 import io
 import base64
 from datetime import datetime,time
@@ -465,7 +461,7 @@ class ExcelMergeWizard(models.TransientModel):
                 if line.batch_payment_id.journal_id.bank_id.bic[0:4] == line.partner_bank_id.bank_id.bic[0:4]:
                     pay_method = "I"
                 elif line.amount > 200000:
-                    current_time = datetime.datetime.now(pytz.timezone('Asia/Kolkata')).time()
+                    current_time = datetime.now(pytz.timezone('Asia/Kolkata')).time()
                     if current_time >= time(15, 0):
                         pay_method = "N"
                     else:
@@ -1444,8 +1440,8 @@ class CustomExcel(models.TransientModel):
             if line.batch_payment_id.journal_id.bank_id.bic[0:4] == line.partner_bank_id.bank_id.bic[0:4]:
                 pay_method = "I"
             elif line.amount > 200000:
-                current_time = datetime.datetime.now(pytz.timezone('Asia/Kolkata')).time()
-                if current_time >= datetime.time(15, 0):
+                current_time = datetime.now(pytz.timezone('Asia/Kolkata')).time()
+                if current_time >= time(15, 0):
                     pay_method = "N"
                 else:
                     pay_method = "R"
@@ -1521,8 +1517,8 @@ class CustomExcel(models.TransientModel):
             if line.batch_payment_id.journal_id.bank_id.bic[0:4] == line.partner_bank_id.bank_id.bic[0:4]:
                 pay_method = "I"
             elif line.amount > 200000:
-                current_time = datetime.datetime.now(pytz.timezone('Asia/Kolkata')).time()
-                if current_time >= datetime.time(15, 0):
+                current_time = datetime.now(pytz.timezone('Asia/Kolkata')).time()
+                if current_time >= time(15, 0):
                     pay_method = "N"
                 else:
                     pay_method = "R"
