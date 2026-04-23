@@ -465,7 +465,8 @@ class ExcelMergeWizard(models.TransientModel):
                 if line.batch_payment_id.journal_id.bank_id.bic[0:4] == line.partner_bank_id.bank_id.bic[0:4]:
                     pay_method = "I"
                 elif line.amount > 200000:
-                    current_time = datetime.datetime.now(pytz.timezone('Asia/Kolkata')).time()
+                    # current_time = datetime.datetime.now(pytz.timezone('Asia/Kolkata')).time()
+                    current_time = fields.Datetime.context_timestamp(self, fields.Datetime.now()).time()
                     if current_time >= time(15, 0):
                         pay_method = "N"
                     else:
