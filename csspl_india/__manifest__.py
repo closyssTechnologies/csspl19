@@ -23,7 +23,7 @@
              'reports/css_tax_invoice_report_without_logo.xml',
              'reports/material_invoice.xml',
              'reports/material_invoice_without_logo.xml',
-             # 'reports/custom_bank_format.xml',
+             'reports/custom_bank_format.xml',
              'reports/purchase_report_with_logo.xml',
              'reports/purchase_report_without_logo.xml',
              'wizard/import_pmt.xml',
