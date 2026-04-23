@@ -559,6 +559,7 @@ class AccountBatchPaymentInherit(models.Model):
         string="Custom Boolean", default=False,
         compute='_compute_is_amt',
     )
+    prioritys = fields.Boolean()
 
     def write(self, vals):
         if self.payment_ids:
