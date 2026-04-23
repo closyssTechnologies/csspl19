@@ -1448,7 +1448,8 @@ class CustomExcel(models.TransientModel):
             elif line.amount > 200000:
                 # current_time = datetime.datetime.now(pytz.timezone('Asia/Kolkata')).time()
                 current_time = fields.Datetime.context_timestamp(self, fields.Datetime.now()).time()
-                if current_time >= datetime.time(15, 0):
+                if current_time >= time(15, 0):
+                # if current_time >= datetime.time(15, 0):
                     pay_method = "N"
                 else:
                     pay_method = "R"
@@ -1526,7 +1527,8 @@ class CustomExcel(models.TransientModel):
             elif line.amount > 200000:
                 # current_time = datetime.datetime.now(pytz.timezone('Asia/Kolkata')).time()
                 current_time = fields.Datetime.context_timestamp(self, fields.Datetime.now()).time()
-                if current_time >= datetime.time(15, 0):
+                # if current_time >= datetime.time(15, 0):
+                if current_time >= time(15, 0):
                     pay_method = "N"
                 else:
                     pay_method = "R"
