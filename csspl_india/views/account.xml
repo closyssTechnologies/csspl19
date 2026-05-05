@@ -157,6 +157,7 @@
         <field name="inherit_id" ref="account.view_account_supplier_payment_tree"/>
         <field name="arch" type="xml">
             <xpath expr="//field[@name='amount_signed']" position="after">
+                <field name="destination_account_id" optional="show"/>
                 <field name="bank_acc_related" optional="hide"/>
                 <field name="reason_text" readonly="1" optional="hide"/>
                 <field name="source_doc" optional="hide"/>
