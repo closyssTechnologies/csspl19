@@ -364,6 +364,7 @@
         <field name="arch" type="xml">
             <xpath expr="//field[@name='name']" position="after">
                 <field name="analytics_plans_batch_id" optional="hide"/>
+                <field name="analytics_account_id" optional="hide"/>
             </xpath>
             <xpath expr="//field[@name='date']" position="attributes">
                 <attribute name="options">{'numeric': true}</attribute>
