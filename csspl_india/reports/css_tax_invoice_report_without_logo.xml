@@ -82,7 +82,7 @@
                                         <span class="header_text">
                                             <b>Ack Date:</b>
                                         </span>
-                                        <span t-esc="l10n_in_einvoice_json.get('AckDt') or (doc._fields.get('l10n_in_ack_date') and doc.l10n_in_ack_date) or ''"/>
+                                        <span t-esc="l10n_in_einvoice_json.get('AckDt') or (doc._fields.get('l10n_in_ack_date') and doc.l10n_in_ack_date) or ''" t-options='{"widget": "date", "format": "dd-MMM-yyyy"}'/>
                                     </div>
                                 </td>
 
@@ -116,7 +116,7 @@
                                         <t t-else="">Invoice Date:</t>
                                     </strong>
                                     <br/>
-                                    <span t-esc="doc.invoice_date" t-options="{'widget': 'date'}" class="content_text"
+                                    <span t-esc="doc.invoice_date" t-options='{"widget": "date", "format": "dd-MMM-yyyy"}' class="content_text"
                                           style="padding: 5px"/>
                                 </td>
                                 <td style="border: 1px solid; vertical-align: text-top;" colspan="2">
@@ -127,7 +127,7 @@
                                 <td style="border: 1px solid; vertical-align: text-top;" colspan="2">
                                     <strong style="padding: 5px" class="header_text">Date:</strong>
                                     <br/>
-                                    <span style="padding: 5px" t-esc="doc.po_date" class="content_text"/>
+                                    <span style="padding: 5px" t-esc="doc.po_date" t-options='{"widget": "date", "format": "dd-MMM-yyyy"}' class="content_text"/>
                                 </td>
                             </tr>
                             <tr>

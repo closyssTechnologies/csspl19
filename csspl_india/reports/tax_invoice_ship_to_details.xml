@@ -57,7 +57,7 @@
                                 </td>
                                 <td style="width:50%;border: 1px solid">
                                     <strong style="padding: 5px" class="header_text">Invoice Date:</strong>
-                                    <span t-esc="doc.invoice_date" t-options="{'widget': 'date'}" class="content_text"/>
+                                    <span t-esc="doc.invoice_date" t-options='{"widget": "date", "format": "dd-MMM-yyyy"}' class="content_text"/>
                                 </td>
                             </tr>
                             <tr>
@@ -69,7 +69,7 @@
                                     </span> <span t-esc="doc.transaction_id.ack_no"/>
                                     <br/>
                                     <span class="header_text"><b>Ack Date:</b>
-                                    </span> <span t-esc="doc.transaction_id.ack_date"/>
+                                    </span> <span t-esc="doc.transaction_id.ack_date" t-options='{"widget": "date", "format": "dd-MMM-yyyy"}'/>
                                 </td>
                                 <td style="padding:5px;border: 1px solid;">
                                         <t t-if="doc.transaction_id.qr_code">

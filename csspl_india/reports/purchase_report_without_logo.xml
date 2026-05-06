@@ -62,7 +62,7 @@
                                 <strong>Your Order Reference:</strong>
                                 <span t-field="o.partner_ref"/><br/>
                                 <strong>Order Date :</strong>
-                                <span t-field="o.date_approve" t-options="{'widget': 'date'}"/><br/>
+                                <span t-field="o.date_approve" t-options='{"widget": "date", "format": "dd-MMM-yyyy"}'/><br/>
                             </td>
                         </tr>
                     </table>
