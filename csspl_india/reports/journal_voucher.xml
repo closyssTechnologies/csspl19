@@ -95,6 +95,9 @@
                                     <td style="border: 1px solid; text-align: center ;">
                                         <t t-set="particular"
                                            t-value="(line.account_id.name or '') + ((' (' + line.partner_id.name + ')') if line.partner_id.name else '')"/>
+                                        <t t-if="particular">
+                                            <t t-esc="particular"/>
+                                        </t>
                                     </td>
 
                                     <td style="border: 1px solid; text-align: center ;">
