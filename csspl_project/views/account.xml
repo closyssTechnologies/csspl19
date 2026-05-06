@@ -196,6 +196,9 @@
                 <field name="analytics_account_id" optional="show"/>
                 <field name="analytics_plan_id" optional="show"/>
             </xpath>
+            <xpath expr="//field[@name='date']" position="attributes">
+                <attribute name="options">{'numeric': true}</attribute>
+            </xpath>
         </field>
     </record>
 

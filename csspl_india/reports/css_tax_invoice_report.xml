@@ -346,11 +346,11 @@
                                             <td style="border: 1px solid; padding: 5px;">
                                                 <t t-if="line.display_type == 'line_section'">
                                                     <strong>
-                                                        <span t-esc="line.product_id.name or '--'"/>
+                                                        <span style="white-space: pre-line;" t-raw="line.product_id.name or '--'"/>
                                                     </strong>
                                                 </t>
                                                 <t t-elif="line.display_type == 'line_note'">
-                                                    <span t-esc="line.name or line.display_name or line.product_id.display_name or '--'"/>
+                                                    <span style="white-space: pre-line;" t-raw="line.name or line.display_name or line.product_id.display_name or '--'"/>
                                                 </t>
                                             </td>
                                         </tr>
