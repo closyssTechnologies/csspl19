@@ -530,10 +530,10 @@ class AccountBatchPaymentInherit(models.Model):
     # temporarily commented
     state = fields.Selection([
         ('draft', 'New'),
-        # ('submitted', 'Submitted'),
-        # ('approved', 'Approved'),
-        # ('reject', 'Rejected'),
-        # ('management_approved', 'Management Approved'),
+        ('submitted', 'Submitted'),
+        ('approved', 'Approved'),
+        ('reject', 'Rejected'),
+        ('management_approved', 'Management Approved'),
         ('bank_upload', 'Bank Upload'),
         ('pending_transfer', 'Pending For Transfer'),
         ('sent', 'Transfered'),
@@ -652,12 +652,12 @@ class AccountBatchPaymentInherit(models.Model):
 
         }
     # # temporarily commmented
-    # def resend_for_approval(self):
-    #     for rec in self.cancelled_payments_ids:
-    #         rec.batch_payment_id = self.id
-    #         rec.action_draft()
-    #         self.cancelled_payments_ids = [(3, rec.id)]
-    #     self.state = 'submitted'
+    def resend_for_approval(self):
+        for rec in self.cancelled_payments_ids:
+            rec.batch_payment_id = self.id
+            rec.action_draft()
+            self.cancelled_payments_ids = [(3, rec.id)]
+        self.state = 'submitted'
 
     # Report for bank format in xlsx For Attaching in Mail
     def generate_xlsx_mail_report(self):
@@ -759,68 +759,68 @@ class AccountBatchPaymentInherit(models.Model):
             elif batch.payment_ids and all(pay.is_sent for pay in batch.payment_ids):
                 batch.state = 'sent'
             # temporarily commented
-            # elif batch.to_check == True:
-            #     batch.state = 'submitted'
-            # elif batch.is_checked == True:
-            #     batch.state = 'approved'
-            # elif batch.is_reject == True:
-            #     batch.state = 'reject'
+            elif batch.to_check == True:
+                batch.state = 'submitted'
+            elif batch.is_checked == True:
+                batch.state = 'approved'
+            elif batch.is_reject == True:
+                batch.state = 'reject'
 
     # temporarily commented
-    # def send_for_checking(self):
-    #     self.state_mail_submitted()
-    #     return {
-    #         'name': _('Send for Checker'),
-    #         'res_model': 'send.checker',
-    #         'view_mode': 'form',
-    #         'target': 'new',
-    #         'payment_id': self.id,
-    #         'type': 'ir.actions.act_window'
-    #     }
+    def send_for_checking(self):
+        self.state_mail_submitted()
+        return {
+            'name': _('Send for Checker'),
+            'res_model': 'send.checker',
+            'view_mode': 'form',
+            'target': 'new',
+            'payment_id': self.id,
+            'type': 'ir.actions.act_window'
+        }
     # # temporarily commmented
-    # def button_set_checked(self):
-    #     for payment in self:
-    #         payment.to_check = False
-    #         payment.is_checked = True
-    #         payment.is_checked_approve = True
-    #         payment.state_mail_approved()
+    def button_set_checked(self):
+        for payment in self:
+            payment.to_check = False
+            payment.is_checked = True
+            payment.is_checked_approve = True
+            payment.state_mail_approved()
 
     # # temporarily commmented
-    # def reject(self):
-    #     for move in self:
-    #         if not move.rej_reason:
-    #             raise ValidationError('Kindly Mention the Reject Reason')
-    #         move.is_reject = True
-    #         move.is_checked = False
-    #         move.to_check = False
-    #
-    #         for payment in move.payment_ids:
-    #             if not payment.payment_month_id:
-    #                 month = self.env['payments.month'].search([('name', '=', payment.month)], limit=1)
-    #                 if month:
-    #                     payment.payment_month_id = month.id
-    #             payment.reason_text = move.rej_reason
-    #             payment.batch_payment_id.cancelled_payments_ids = [(4, payment.id)]
-    #             payment.batch_payment_id = False
-    #             payment.action_cancel()
-    #
-    #         template = self.env.ref('csspl_india.mail_template_of_batch_rejection')
-    #         if move.payment_ids:
-    #             requestors = move.payment_ids.mapped('request_by')
-    #         else:
-    #             requestors = move.cancelled_payments_ids.mapped('request_by')
-    #         email_list = list(filter(None, requestors.mapped('email')))
-    #         email_list.extend([
-    #             'ayadav@cssindia.in',
-    #             'singhpooja@cssindia.in',
-    #         ])
-    #         emails = ','.join(set(email_list))
-    #         if emails:
-    #             template.email_to = emails
-    #         else:
-    #             template.email_to = False
-    #         template.send_mail(move.id, force_send=True)
-    #         move.message_post(body="Mail has been sent to: %s" % (emails or "No recipients"))
+    def reject(self):
+        for move in self:
+            if not move.rej_reason:
+                raise ValidationError('Kindly Mention the Reject Reason')
+            move.is_reject = True
+            move.is_checked = False
+            move.to_check = False
+
+            for payment in move.payment_ids:
+                if not payment.payment_month_id:
+                    month = self.env['payments.month'].search([('name', '=', payment.month)], limit=1)
+                    if month:
+                        payment.payment_month_id = month.id
+                payment.reason_text = move.rej_reason
+                payment.batch_payment_id.cancelled_payments_ids = [(4, payment.id)]
+                payment.batch_payment_id = False
+                payment.action_cancel()
+
+            template = self.env.ref('csspl_india.mail_template_of_batch_rejection')
+            if move.payment_ids:
+                requestors = move.payment_ids.mapped('request_by')
+            else:
+                requestors = move.cancelled_payments_ids.mapped('request_by')
+            email_list = list(filter(None, requestors.mapped('email')))
+            email_list.extend([
+                'ayadav@cssindia.in',
+                'singhpooja@cssindia.in',
+            ])
+            emails = ','.join(set(email_list))
+            if emails:
+                template.email_to = emails
+            else:
+                template.email_to = False
+            template.send_mail(move.id, force_send=True)
+            move.message_post(body="Mail has been sent to: %s" % (emails or "No recipients"))
 
     def action_draft(self):
         for payment in self:
@@ -1054,21 +1054,21 @@ class AccountBatchPaymentInherit(models.Model):
     #         sendmail.send()
 
     # temporarily commmented
-    # def management_approve(self):
-    #     for rec in self:
-    #         note = "Batch payment %s was Approved on %s by %s" % (
-    #             rec.name, datetime.now(), rec.activity_user_id.name)
-    #         rec.message_post(body=note)
-    #         rec.is_management_approved = True
-    #         rec.approved_date = datetime.now()
-    #         rec.is_checked = False
-    #         rec.state = 'management_approved'
+    def management_approve(self):
+        for rec in self:
+            note = "Batch payment %s was Approved on %s by %s" % (
+                rec.name, datetime.now(), rec.activity_user_id.name)
+            rec.message_post(body=note)
+            rec.is_management_approved = True
+            rec.approved_date = datetime.now()
+            rec.is_checked = False
+            rec.state = 'management_approved'
 
     # temporarily commented
-    # def batch_management_approval(self):
-    #     for rec in self:
-    #         if rec.state == 'approved':
-    #             rec.management_approve()
+    def batch_management_approval(self):
+        for rec in self:
+            if rec.state == 'approved':
+                rec.management_approve()
 
     def pending_transfer(self):
         for rec in self:

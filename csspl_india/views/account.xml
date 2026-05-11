@@ -285,25 +285,25 @@
 
             <xpath expr="//header" position="inside">
                 <!--                temporarily commented-->
-                <!--                <button name="send_for_checking" string="Send For Checking" type="object"-->
-                <!--                        groups="csspl_india.group_payments_maker"-->
-                <!--                        invisible="to_check or is_checked or state != 'draft'"/>-->
-                <!--                <button name="management_approve" string="Management Approval" type="object" groups="base.group_system"-->
-                <!--                        invisible="is_management_approved or state != 'approved'"/>-->
-                <button name="bank_upload" string="Bank Upload" type="object" invisible="state not in ['draft']"/>
+                                <button name="send_for_checking" string="Send For Checking" type="object"
+                                        groups="csspl_india.group_payments_maker"
+                                        invisible="to_check or is_checked or state != 'draft'"/>
+                                <button name="management_approve" string="Management Approval" type="object" groups="base.group_system"
+                                        invisible="is_management_approved or state != 'approved'"/>
+                <button name="bank_upload" string="Bank Upload" type="object" invisible="state not in ['draft', 'management_approved']"/>
                 <!--                temporarily commented-->
                 <!--                        invisible="state not in ['management_approved']"/>-->
                 <button name="pending_transfer" string="Submit" type="object"
                         invisible="state not in ['bank_upload']"/>
                 <!--                temporarily commented-->
-                <!--                <button name="button_set_checked" string="Approve" type="object"-->
-                <!--                        groups="csspl_india.group_payments_checker"-->
-                <!--                        invisible="not to_check or is_checked"/>-->
-                <!--                <button name="reject" type="object" string="Reject"-->
-                <!--                        invisible="state in ['sent','reconciled'] or state == 'reject'"-->
-                <!--                        groups="csspl_india.group_payments_checker"/>-->
-                <!--                <button name="resend_for_approval" type="object" string="Resend for Approval"-->
-                <!--                        invisible="state != 'reject'"/>-->
+                                <button name="button_set_checked" string="Approve" type="object"
+                                        groups="csspl_india.group_payments_checker"
+                                        invisible="not to_check or is_checked"/>
+                                <button name="reject" type="object" string="Reject"
+                                        invisible="state in ['sent','reconciled'] or state == 'reject'"
+                                        groups="csspl_india.group_payments_checker"/>
+                                <button name="resend_for_approval" type="object" string="Resend for Approval"
+                                        invisible="state != 'reject'"/>
             </xpath>
 
 
