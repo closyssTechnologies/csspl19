@@ -106,7 +106,7 @@ class BOQMaterialsWiz(models.Model):
     uom_id = fields.Many2one('uom.uom', related="product_id.uom_id")
     demand_qty = fields.Float()
     quantity = fields.Float()
-    material_ids = fields.One2many('boq.materials.wiz', 'parent_id', auto_join=True)
+    material_ids = fields.One2many('boq.materials.wiz', 'parent_id')
     parent_id = fields.Many2one('boq.materials.wiz')
     purchase_order = fields.Many2one('purchase.order')
     description = fields.Char(string="Description")

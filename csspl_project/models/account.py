@@ -27,22 +27,24 @@ import psycopg2.extras
 # Master Of Payments Month
 class PaymentsMonth(models.Model):
     _name = 'payments.month'
+    _description = 'Payment Month'
 
     name = fields.Char(String='Payments Month')
 
 
 class VouchersAccountsMaster(models.Model):
-
+    _description = 'Acccount Numbers'
     _name = 'voucher.account.master'
 
-    name = fields.Char(String='Payments Month')
+    name = fields.Char(string='Payments Month')
 
 
 # Master Of ATM ID
 class AtmId(models.Model):
     _name = 'atm.id'
+    _description = 'ATM'
 
-    name = fields.Char(String='ATM ID')
+    name = fields.Char(string='ATM ID')
 
 
 class HrExpenseInherit(models.Model):
@@ -355,6 +357,7 @@ class AccountPaymentInherit(models.Model):
 
 class ChangeJournalInBatch(models.TransientModel):
     _name = 'change.journal'
+    _description = 'Journal to Change'
 
     journal_id = fields.Many2one(string='Journal', comodel_name='account.journal')
     batch_pay_id = fields.Many2one(string='Batch ', comodel_name='account.batch.payment')

@@ -3,6 +3,7 @@ from odoo.exceptions import AccessError
 
 class PartnerLedger(models.TransientModel):
     _name = 'excel.register.report'
+    _description = 'Excel Register Report'
 
     start_date = fields.Date(string='From Date', default=fields.Date.today().replace(day=1))
     end_date = fields.Date(string='To Date', default=fields.Date.today())

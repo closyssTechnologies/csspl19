@@ -5,6 +5,7 @@ import json
 
 class SendChecker(models.TransientModel):
     _name = "send.checker"
+    _description = "Send Checker"
 
     checker_id = fields.Many2one('res.users',"User")
     #

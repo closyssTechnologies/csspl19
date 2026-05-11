@@ -427,6 +427,7 @@ class ResSettings(models.TransientModel):
 
 class ExcelMergeWizard(models.TransientModel):
     _name = 'excel.merge.wizard'
+    _description = 'Excel Wizard To merge'
 
     file_name = fields.Binary(string='Binary')
     summary_data = fields.Char(string='Filename')
@@ -536,9 +537,9 @@ class AccountBatchPaymentInherit(models.Model):
         ('management_approved', 'Management Approved'),
         ('bank_upload', 'Bank Upload'),
         ('pending_transfer', 'Pending For Transfer'),
-        ('sent', 'Transfered'),
+        ('sent', 'Transferred'),
         ('reconciled', 'Reconciled'),
-    ], store=True, compute='_compute_state', default='draft', track_visibility='onchange')
+    ], store=True, compute='_compute_state', default='draft', tracking=True)
 
     ref_bank_no = fields.Char('Reference Bank No', tracking=True)
     analytics_account_id = fields.Many2one('account.analytic.account', string='Analytics Account')
@@ -1383,6 +1384,7 @@ class AccountInvoiceReport(models.Model):
 class CustomExcel(models.TransientModel):
     _name = 'custom.excel.class'
     _rec_name = 'summary_data'
+    _description = 'Custom Excel'
 
     file_name = fields.Binary(string='Binary')
     summary_data = fields.Char(string='Filename')
