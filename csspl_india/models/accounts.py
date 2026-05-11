@@ -805,23 +805,23 @@ class AccountBatchPaymentInherit(models.Model):
                 payment.batch_payment_id = False
                 payment.action_cancel()
 
-            template = self.env.ref('csspl_india.mail_template_of_batch_rejection')
-            if move.payment_ids:
-                requestors = move.payment_ids.mapped('request_by')
-            else:
-                requestors = move.cancelled_payments_ids.mapped('request_by')
-            email_list = list(filter(None, requestors.mapped('email')))
-            email_list.extend([
-                'ayadav@cssindia.in',
-                'singhpooja@cssindia.in',
-            ])
-            emails = ','.join(set(email_list))
-            if emails:
-                template.email_to = emails
-            else:
-                template.email_to = False
-            template.send_mail(move.id, force_send=True)
-            move.message_post(body="Mail has been sent to: %s" % (emails or "No recipients"))
+            # template = self.env.ref('csspl_india.mail_template_of_batch_rejection')
+            # if move.payment_ids:
+            #     requestors = move.payment_ids.mapped('request_by')
+            # else:
+            #     requestors = move.cancelled_payments_ids.mapped('request_by')
+            # email_list = list(filter(None, requestors.mapped('email')))
+            # email_list.extend([
+            #     'ayadav@cssindia.in',
+            #     'singhpooja@cssindia.in',
+            # ])
+            # emails = ','.join(set(email_list))
+            # if emails:
+            #     template.email_to = emails
+            # else:
+            #     template.email_to = False
+            # template.send_mail(move.id, force_send=True)
+            # move.message_post(body="Mail has been sent to: %s" % (emails or "No recipients"))
 
     def action_draft(self):
         for payment in self:

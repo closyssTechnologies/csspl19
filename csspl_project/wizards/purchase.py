@@ -63,9 +63,9 @@ class TaskInvoices(models.TransientModel):
     _name = 'task.invoices'
     _description = "Transient model to enter quantity, amount and invoice product for Invoice creation"
 
-    task_id = fields.Many2one('project.task', readonly=1)
+    task_id = fields.Many2one('project.task', readonly=True)
     product_id = fields.Many2one('product.product', domain=[('detailed_type', '=', 'service')])
-    task_amount = fields.Float(readonly=1)
+    task_amount = fields.Float(readonly=True)
     quantity = fields.Float()
     amount = fields.Float(string="Unit Price")
     amount_total = fields.Float(string="Total", readonly="1")

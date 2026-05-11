@@ -16,7 +16,7 @@ class PaymentReport(models.TransientModel):
     analytics_account_id = fields.Many2one('account.analytic.account', string="Analytics Account")
     month = fields.Char('Month')
     date = fields.Date('Date')
-    amount = fields.Monetary(currency_field="currency_id", readonly=1)
+    amount = fields.Monetary(currency_field="currency_id",readonly=True)
     currency_id = fields.Many2one('res.currency', )
     batch_payment_id = fields.Many2one('account.batch.payment')
     payment_id = fields.Many2one('account.payment')
