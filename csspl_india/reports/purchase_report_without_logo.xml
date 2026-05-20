@@ -20,6 +20,78 @@
                         line-height: 1.35;
                     }
 
+
+                    /* =====================================================
+   HTML NOTE / TERMS FIX
+   Force Odoo HTML field content to follow report style
+   ===================================================== */
+
+.po-note-box {
+    border: 1px solid #d7dee8 !important;
+    padding: 10px 12px !important;
+    margin-top: 8px !important;
+    background: #ffffff !important;
+    page-break-inside: auto !important;
+    word-wrap: break-word !important;
+    overflow-wrap: break-word !important;
+    white-space: normal !important;
+    font-family: Arial, Helvetica, sans-serif !important;
+    font-size: 11px !important;
+    line-height: 1.35 !important;
+    color: #172033 !important;
+}
+
+.po-note-box *,
+.po-note-content,
+.po-note-content * {
+    font-family: Arial, Helvetica, sans-serif !important;
+    font-size: 11px !important;
+    line-height: 1.35 !important;
+    color: #172033 !important;
+    box-sizing: border-box !important;
+    max-width: 100% !important;
+}
+
+.po-note-content {
+    width: 100% !important;
+    display: block !important;
+    overflow: visible !important;
+    word-wrap: break-word !important;
+    overflow-wrap: break-word !important;
+    white-space: normal !important;
+}
+
+.po-note-content table {
+    width: 100% !important;
+    max-width: 100% !important;
+    border-collapse: collapse !important;
+    table-layout: fixed !important;
+    margin: 6px 0 !important;
+    border: 1px solid #d7dee8 !important;
+}
+
+.po-note-content table td,
+.po-note-content table th {
+    border: 1px solid #d7dee8 !important;
+    padding: 7px 9px !important;
+    vertical-align: top !important;
+    word-wrap: break-word !important;
+    overflow-wrap: break-word !important;
+    white-space: normal !important;
+}
+
+.po-note-content p,
+.po-note-content div {
+    margin: 0 0 4px 0 !important;
+    padding: 0 !important;
+}
+
+.po-note-content strong,
+.po-note-content b {
+    font-weight: 700 !important;
+}
+
+
 /* ===============================
    TOP SPACE CONTROL - WITHOUT LOGO
    yaha value adjust kar sakta hai
@@ -119,17 +191,19 @@
                         color: #5b677a;
                     }
 
-                    .po-badge {
-                        display: inline-block;
-                        border: 1px solid #10233f;
-                        color: #10233f;
-                        padding: 4px 8px;
-                        font-size: 11px;
-                        font-weight: 700;
-                        text-transform: uppercase;
-                        letter-spacing: .4px;
-                        background: #f5f8fc;
-                    }
+.po-badge {
+    display: inline-block;
+    border: none !important;
+    outline: none !important;
+    box-shadow: none !important;
+    color: #10233f;
+    padding: 5px 10px;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .4px;
+    background: transparent !important;
+}
 
                     .po-section-head {
                         font-size: 11px;
@@ -224,13 +298,13 @@
                         background: #fbfcfe;
                     }
 
-                    .po-col-sr { width: 5%; text-align: center; }
-                    .po-col-desc { width: 39%; }
+                    .po-col-sr { width: 3%; text-align: center; }
+                    .po-col-desc { width: 36%; }
                     .po-col-hsn { width: 11%; text-align: center; }
-                    .po-col-tax { width: 15%; }
-                    .po-col-qty { width: 10%; text-align: right; }
+                    .po-col-tax { width: 14%; }
+                    .po-col-qty { width: 12%; text-align: right; }
                     .po-col-rate { width: 10%; text-align: right; }
-                    .po-col-amt { width: 10%; text-align: right; }
+                    .po-col-amt { width: 14%; text-align: right; }
 
                     .po-product-name {
                         font-weight: 700;
@@ -439,7 +513,7 @@
                             <td style="width:50%;">
                                 <div class="po-section-head">Buyer / Bill To</div>
                                 <div class="po-address">
-                                    <strong><span t-esc="o.company_id.partner_id.name or ''"/></strong><br/>
+                                    <strong><span t-esc="o.company_id.parent_id.partner_id.name or o.company_id.partner_id.name or ''"/></strong><br/>
                                     <span t-esc="o.company_id.partner_id.street or ''"/>
                                     <span t-if="o.company_id.partner_id.street2">, <span t-esc="o.company_id.partner_id.street2"/></span><br/>
                                     <span t-esc="o.company_id.partner_id.city or ''"/>
@@ -512,10 +586,9 @@
                                     <td class="po-col-hsn">
                                         <span t-esc="line.product_id.l10n_in_hsn_code or ''"/>
                                     </td>
-                                <td class="po-col-tax">
-                                    <span t-esc="', '.join(map(lambda x: (x.description or x.name), line.tax_ids))"
-                                              id="line_tax_ids"/>
-                                </td>
+<td class="po-col-tax">
+    <span t-esc="line._fields.get('tax_ids') and line.tax_ids and ', '.join(map(lambda x: x.name or '', line.tax_ids)) or ''"/>
+</td>
                                     <td class="po-col-qty">
                                         <span t-field="line.product_qty"/>
                                         <t t-set="qty" t-value="qty + line.product_qty"/>
@@ -594,7 +667,7 @@
 
                     <div class="po-note-box" t-if="o.note">
                         <div class="po-section-head">Terms and Conditions / Notes</div>
-                        <span t-field="o.note"/>
+                        <div class="po-note-content" t-field="o.note"/>
                     </div>
 
                     <table class="po-sign-table">
@@ -604,7 +677,7 @@
                                 <span t-field="o.user_id"/>
                             </td>
                             <td style="width:50%; text-align:right;">
-                                <strong>For <span t-field="o.company_id.name"/></strong>
+                                <strong>For <span t-esc="o.company_id.parent_id.name or o.company_id.name or '' "/></strong>
                                 <div class="po-sign-space"></div>
                                 <div class="po-digital-note">This is a digitally generated purchase order and does not require signature.</div>
                             </td>
