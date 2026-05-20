@@ -1,251 +1,616 @@
-<?xml version="1.0" encoding="utf-8"?>
+
 <odoo>
 
-    <template id='report_purchaseorder_document_without_logo'>
+    <!-- Modern wkhtmltopdf-safe Purchase Order: WITHOUT LOGO -->
+    <template id="report_purchaseorder_document_without_logo">
         <t t-call="web.html_container">
-
-            <!--        <t t-foreach="docs" t-as="doc">-->
-            <style>.header_text{ font-size: 14px; } .content_text{ font-size: 13px; }</style>
             <t t-call="csspl_india.report_purchase_layout">
+                <t t-set="o" t-value="o.with_context(lang=o.partner_id.lang)"/>
 
-                <div class="text-center" style="font-size: 12px;">
-                    <h2 t-if="o.state in ['draft', 'sent', 'to approve']">Request for Quotation </h2>
-                    <h2 t-if="o.state in ['purchase', 'done']">Purchase Order </h2>
-                    <h2 t-if="o.state == 'cancel'">Cancelled Purchase Order </h2>
-                </div>
+                <style type="text/css">
+                    /* wkhtmltopdf-safe CSS: no Google fonts, no flex, no grid */
+                    * {
+                        box-sizing: border-box;
+                    }
 
-                <div class="page">
+                    body {
+                        font-family: Arial, Helvetica, sans-serif;
+                        color: #172033;
+                        font-size: 12px;
+                        line-height: 1.35;
+                    }
+
+/* ===============================
+   TOP SPACE CONTROL - WITHOUT LOGO
+   yaha value adjust kar sakta hai
+   negative margin table ko upar le jayega
+   =============================== */
+.po-page {
+    padding: 0 36px 12px 36px !important;
+    margin: 0 !important;
+    overflow: visible !important;
+}
+
+.po-without-logo {
+    margin-top: 0 !important;
+}
+
+.header {
+    height: 0 !important;
+    min-height: 0 !important;
+    max-height: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border: 0 !important;
+    overflow: hidden !important;
+}
+
+.article {
+    padding-top: 0 !important;
+    margin-top: 0 !important;
+}
+
+/* Purchase order full block spacing */
+.po-title-table {
+    margin-top: 0 !important;
+    margin-bottom: 12px !important;
+}
+
+.po-card,
+.po-meta-table,
+.po-lines,
+.po-summary-wrap,
+.po-amount-words,
+.po-sign-table {
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+}
+
+                    .po-card {
+                        width: 100%;
+                        border-collapse: collapse;
+                        border: 1px solid #d7dee8;
+                        background: #ffffff;
+                        margin-bottom: 8px;
+                        page-break-inside: avoid;
+                    }
+
+.po-card td,
+.po-card th {
+    border: 1px solid #d7dee8 !important;
+    padding: 13px 15px !important;
+    vertical-align: top !important;
+}
+
+                    .po-title-table {
+                        width: 100%;
+                        border-collapse: collapse;
+                        margin-bottom: 12px;
+                        page-break-inside: avoid;
+                        border: 1px solid #10233f;
+                        background: #ffffff;
+                    }
+
+                    .po-title-left {
+                        width: 64%;
+                        padding: 10px 12px;
+                        vertical-align: middle;
+                    }
+
+                    .po-title-right {
+                        width: 36%;
+                        padding: 10px 12px;
+                        text-align: right;
+                        vertical-align: middle;
+                    }
+
+                    .po-title {
+                        margin: 0;
+                        font-size: 22px;
+                        letter-spacing: .6px;
+                        color: #10233f;
+                        font-weight: 700;
+                        text-transform: uppercase;
+                    }
+
+                    .po-subtitle {
+                        margin-top: 3px;
+                        font-size: 11px;
+                        color: #5b677a;
+                    }
+
+                    .po-badge {
+                        display: inline-block;
+                        border: 1px solid #10233f;
+                        color: #10233f;
+                        padding: 4px 8px;
+                        font-size: 11px;
+                        font-weight: 700;
+                        text-transform: uppercase;
+                        letter-spacing: .4px;
+                        background: #f5f8fc;
+                    }
+
+                    .po-section-head {
+                        font-size: 11px;
+                        text-transform: uppercase;
+                        color: #10233f;
+                        font-weight: 700;
+                        letter-spacing: .35px;
+                        margin-bottom: 4px;
+                    }
+
+                    .po-muted {
+                        color: #647085;
+                    }
+
+                    .po-text-safe,
+                    .po-address,
+                    .po-line-desc,
+                    .po-note-box {
+                        word-wrap: break-word;
+                        overflow-wrap: break-word;
+                        white-space: normal;
+                    }
+
+                    .po-meta-table {
+                        width: 100%;
+                        border-collapse: collapse;
+                        margin-bottom: 8px;
+                        page-break-inside: avoid;
+                    }
+
+.po-meta-table td {
+    border: 1px solid #d7dee8 !important;
+    padding: 12px 15px !important;
+    vertical-align: top !important;
+    background: #fbfcfe !important;
+}
+                    .po-label {
+                        color: #5b677a;
+                        font-size: 10px;
+                        text-transform: uppercase;
+                        letter-spacing: .25px;
+                        font-weight: 700;
+                    }
+
+                    .po-value {
+                        display: block;
+                        color: #172033;
+                        font-size: 12px;
+                        font-weight: 600;
+                        margin-top: 2px;
+                        word-wrap: break-word;
+                        overflow-wrap: break-word;
+                    }
+
+                    .po-lines {
+                        width: 100%;
+                        border-collapse: collapse;
+                        table-layout: fixed;
+                        margin-top: 8px;
+                        font-size: 11px;
+                    }
+
+                    .po-lines thead {
+                        display: table-header-group;
+                    }
+
+                    .po-lines tfoot {
+                        display: table-row-group;
+                    }
+
+                    .po-lines th {
+                        background: #10233f;
+                        color: #ffffff;
+                        border: 1px solid #10233f;
+                        padding: 10px 9px;
+                        font-size: 10px;
+                        text-transform: uppercase;
+                        letter-spacing: .25px;
+                        vertical-align: middle;
+                    }
+
+                    .po-lines td {
+                        border: 1px solid #d7dee8;
+                        padding: 8px 9px;
+                        vertical-align: top;
+                        color: #172033;
+                        word-wrap: break-word;
+                        overflow-wrap: break-word;
+                    }
+
+                    .po-lines tbody tr:nth-child(even) td {
+                        background: #fbfcfe;
+                    }
+
+                    .po-col-sr { width: 5%; text-align: center; }
+                    .po-col-desc { width: 39%; }
+                    .po-col-hsn { width: 11%; text-align: center; }
+                    .po-col-tax { width: 15%; }
+                    .po-col-qty { width: 10%; text-align: right; }
+                    .po-col-rate { width: 10%; text-align: right; }
+                    .po-col-amt { width: 10%; text-align: right; }
+
+                    .po-product-name {
+                        font-weight: 700;
+                        color: #10233f;
+                    }
+
+                    .po-section-row td {
+                        background: #edf3fb !important;
+                        color: #10233f;
+                        font-weight: 700;
+                        text-transform: uppercase;
+                    }
+
+                    .po-note-row td {
+                        background: #fffaf0 !important;
+                        color: #4b5563;
+                        font-style: italic;
+                    }
+
+                    .po-subtotal-row td {
+                        background: #f5f8fc !important;
+                        font-weight: 700;
+                        text-align: right;
+                    }
+
+.po-total-row td {
+    background: #fbfcfe !important;
+    color: #172033 !important;
+    font-weight: 700 !important;
+    border: 1px solid #d7dee8 !important;
+    padding: 9px 12px !important;
+    vertical-align: middle !important;
+}
+
+.po-total-row .po-col-amt,
+.po-total-row td:last-child {
+    text-align: right !important;
+    padding-right: 14px !important;
+}
+
+.po-tax-table td,
+.po-tax-table th {
+    padding: 8px 12px !important;
+    border: 1px solid #d7dee8 !important;
+    color: #172033 !important;
+    background: #ffffff !important;
+    font-size: 11px !important;
+    vertical-align: middle !important;
+}
+
+.po-tax-table td:last-child,
+.po-tax-table th:last-child {
+    text-align: right !important;
+    padding-right: 14px !important;
+}
+                    .po-right {
+                        text-align: right;
+                    }
+
+                    .po-center {
+                        text-align: center;
+                    }
+
+                    .po-summary-wrap {
+                        width: 100%;
+                        border-collapse: collapse;
+                        margin-top: 8px;
+                        page-break-inside: avoid;
+                    }
+
+                    .po-summary-left {
+                        width: 58%;
+                        vertical-align: top;
+                        padding-right: 8px;
+                    }
+
+                    .po-summary-right {
+                        width: 42%;
+                        vertical-align: top;
+                    }
+
+                    .po-tax-table {
+                        width: 100%;
+                        border-collapse: collapse;
+                        border: 1px solid #d7dee8;
+                    }
+
+
+                    .po-tax-table td,
+                    .po-tax-table th {
+                        padding: 7px 9px !important;
+                        border: 1px solid #d7dee8 !important;
+                        color: #172033 !important;
+                        background: #ffffff !important;
+                        font-size: 11px !important;
+                    }
+
+                    .po-tax-table td:first-child,
+                    .po-tax-table th:first-child {
+                        text-align: left !important;
+                    }
+
+                    .po-tax-table td:last-child,
+                    .po-tax-table th:last-child {
+                        text-align: right !important;
+                        padding-right: 12px !important;
+                    }
+
+
+                .po-tax-table td,
+                .po-tax-table th {
+                    padding: 7px 9px !important;
+                    border: 1px solid #d7dee8 !important;
+                    color: #172033 !important;
+                    background: #ffffff !important;
+                    font-size: 11px !important;
+                }
+
+                .po-tax-table td:first-child,
+                .po-tax-table th:first-child {
+                    text-align: left !important;
+                }
+
+                .po-tax-table td:last-child,
+                .po-tax-table th:last-child {
+                    text-align: right !important;
+                    padding-right: 12px !important;
+                }
+
+                .po-amount-words {
+                        border: 1px solid #d7dee8;
+                        padding: 10px 12px;
+                        margin-top: 8px;
+                        background: #fbfcfe;
+                        page-break-inside: avoid;
+                    }
+
+                    .po-note-box {
+                        border: 1px solid #d7dee8;
+                        padding: 10px 12px;
+                        margin-top: 8px;
+                        min-height: 28px;
+                        page-break-inside: auto;
+                    }
+
+                    .po-sign-table {
+                        width: 100%;
+                        border-collapse: collapse;
+                        margin-top: 8px;
+                        page-break-inside: avoid;
+                    }
+
+.po-sign-table td {
+    border: 1px solid #d7dee8 !important;
+    padding: 14px 15px !important;
+    vertical-align: top !important;
+}
+
+                    .po-sign-space {
+                        height: 58px;
+                    }
+
+                    .po-digital-note {
+                        text-align: center;
+                        font-size: 10px;
+                        color: #647085;
+                    }
+
+                    .header_text {
+                        font-size: 12px;
+                    }
+
+                    .content_text {
+                        font-size: 11px;
+                    }
+                </style>
+
+                <div class="page po-page po-without-logo">
                     <div class="oe_structure"/>
-                    <t t-set="o" t-value="o.with_context(lang=o.partner_id.lang)"/>
 
-                    <table style="width: 100%;border: 1px solid;background-color: #FFFFFF;">
+                    <table class="po-title-table">
                         <tr>
-                            <td style="width: 50%;background-color: #FFFFFF;padding-left: 3px;valign: top">
-                                <strong>Supplier (Bill From):</strong>
-                                <div t-field="o.partner_id"
-                                     t-options='{"widget": "contact", "fields": ["address", "name", "phone", "vat"], "no_marker": True, "phone_icons": True}'/>
-
+                            <td class="po-title-left">
+                                <h1 class="po-title" t-if="o.state in ['draft', 'sent', 'to approve']">Request for Quotation</h1>
+                                <h1 class="po-title" t-if="o.state in ['purchase', 'done']">Purchase Order</h1>
+                                <h1 class="po-title" t-if="o.state == 'cancel'">Cancelled Purchase Order</h1>
+                                <div class="po-subtitle">Professional purchase document generated from Odoo</div>
                             </td>
-                            <td style="width: 50%;valign: top;background-color: #FFFFFF;padding-left: 3px">
-                                <strong>To :</strong>
-                                <t t-if="o.dest_address_id">
-                                    <div t-field="o.dest_address_id"
-                                         t-options='{"widget": "contact", "fields": ["address", "name", "phone"], "no_marker": True, "phone_icons": True}' name="purchase_shipping_address"/>
-                                </t>
-                                <t t-else="">
-                                    <div>
-                                        <span t-esc="o.gstin_id.name"/><br/>
-                                        <span t-esc="o.gstin_id.street"/>
-                                        <span t-esc="o.gstin_id.street2"/><br/>
-                                        <span t-esc="o.gstin_id.city"/>,
-                                        <span t-esc="o.gstin_id.state_id.name"/>-
-                                        <span t-esc="o.gstin_id.zip"/><br/>
-                                        <span t-esc="o.gstin_id.country_id.name"/><br/>
-                                        GSTIN :<span t-esc="o.gstin_id.vat"/><br/>
-                                    </div>
-
-                                </t>
-
-                            </td>
-                        </tr>
-                    </table>
-                    <table style="border: 1px solid;width: 100%">
-                        <tr>
-                            <td style="width: 50%;padding-left: 3px;padding-top: 2px">
-                                <strong>PO Name :</strong>
-                                <span t-field="o.name"/><br/>
-
-                                <strong>Purchase Representative :</strong>
-                                <span t-field="o.user_id" /> <br/>
-                            </td>
-                            <td style="width: 50%;padding-left: 3px;padding-top: 2px">
-                                <strong>Your Order Reference:</strong>
-                                <span t-field="o.partner_ref"/><br/>
-                                <strong>Order Date :</strong>
-                                <span t-field="o.date_approve" t-options='{"widget": "date", "format": "dd-MMM-yyyy"}'/><br/>
+                            <td class="po-title-right" style="border-left:1px solid #10233f;">
+                                <span class="po-badge">
+                                    <span t-field="o.name"/>
+                                </span>
                             </td>
                         </tr>
                     </table>
 
-<!--                    <div id="informations" class="row mt-4 mb32">-->
-<!--                        <div t-if="o.name" class="col-3 bm-2">-->
-<!--                            <strong>PO Name:</strong>-->
-<!--                            <p t-field="o.name" class="m-0"/>-->
-<!--                        </div>-->
-<!--                        <div t-if="o.user_id" class="col-3 bm-2">-->
-<!--                            <strong>Purchase Representative:</strong>-->
-<!--                            <p t-field="o.user_id" class="m-0"/>-->
-<!--                        </div>-->
-<!--                        <div t-if="o.partner_ref" class="col-3 bm-2">-->
-<!--                            <strong>Your Order Reference:</strong>-->
-<!--                            <p t-field="o.partner_ref" class="m-0"/>-->
-<!--                        </div>-->
-<!--                        <div t-if="o.state in ['purchase','done'] and o.date_approve" class="col-3 bm-2">-->
-<!--                            <strong>Order Date:</strong>-->
-<!--                            <p t-field="o.date_approve" class="m-0"/>-->
-<!--                        </div>-->
-                        <!--                        <div t-elif="o.date_order" class="col-3 bm-2">-->
-                        <!--                            <strong >Order Deadline:</strong>-->
-                        <!--                            <p t-field="o.date_order" class="m-0"/>-->
-                        <!--                        </div>-->
-<!--                    </div>-->
+                    <table class="po-card">
+                        <tr>
+                            <td style="width:50%;">
+                                <div class="po-section-head">Supplier / Bill From</div>
+                                <div class="po-address">
+                                    <div t-field="o.partner_id"
+                                         t-options='{"widget": "contact", "fields": ["address", "name", "phone", "vat"], "no_marker": True, "phone_icons": True}'/>
+                                </div>
+                            </td>
+                            <td style="width:50%;">
+                                <div class="po-section-head">Buyer / Bill To</div>
+                                <div class="po-address">
+                                    <strong><span t-esc="o.company_id.partner_id.name or ''"/></strong><br/>
+                                    <span t-esc="o.company_id.partner_id.street or ''"/>
+                                    <span t-if="o.company_id.partner_id.street2">, <span t-esc="o.company_id.partner_id.street2"/></span><br/>
+                                    <span t-esc="o.company_id.partner_id.city or ''"/>
+                                    <span t-if="o.company_id.partner_id.state_id">, <span t-esc="o.company_id.partner_id.state_id.name"/></span>
+                                    <span t-if="o.company_id.partner_id.zip"> - <span t-esc="o.company_id.partner_id.zip"/></span><br/>
+                                    <span t-esc="o.company_id.partner_id.country_id.name or ''"/><br/>
+                                    <span t-if="o.company_id.partner_id.vat">GSTIN: <span t-esc="o.company_id.partner_id.vat"/></span>
+                                </div>
+                            </td>
+                        </tr>
+                    </table>
 
-                    <table class="table table-sm o_main_table mt-4" style="border: 1px solid">
-                        <thead style="display: table-row-group">
+                    <table class="po-meta-table">
+                        <tr>
+                            <td style="width:25%;">
+                                <span class="po-label">PO Name</span>
+                                <span class="po-value" t-field="o.name"/>
+                            </td>
+                            <td style="width:25%;">
+                                <span class="po-label">Purchase Representative</span>
+                                <span class="po-value" t-field="o.user_id"/>
+                            </td>
+                            <td style="width:25%;">
+                                <span class="po-label">Vendor Reference</span>
+                                <span class="po-value" t-field="o.partner_ref"/>
+                            </td>
+                            <td style="width:25%;">
+                                <span class="po-label">Order Date</span>
+                                <span class="po-value" t-field="o.date_approve" t-options="{'widget': 'date'}"/>
+                            </td>
+                        </tr>
+                    </table>
+
+                    <table class="po-lines">
+                        <thead>
                             <tr>
-                                <th name="th_taxes"><strong>Sr No</strong></th>
-                                <th name="th_description"><strong>Description</strong></th>
-                                <th><strong>Hsn Code</strong></th>
-                                <th name="th_taxes"><strong>Taxes</strong></th>
-<!--                                <th name="th_date_req" class="text-center"><strong>Date Req.</strong></th>-->
-                                <th name="th_quantity" class="text-end"><strong>Qty</strong></th>
-                                <th name="th_price_unit" class="text-end"><strong>Unit Price</strong></th>
-                                <th name="th_amount" class="text-end"><strong>Amount</strong></th>
+                                <th class="po-col-sr">Sr</th>
+                                <th class="po-col-desc">Description</th>
+                                <th class="po-col-hsn">HSN</th>
+                                <th class="po-col-tax">Taxes</th>
+                                <th class="po-col-qty">Qty</th>
+                                <th class="po-col-rate">Rate</th>
+                                <th class="po-col-amt">Amount</th>
                             </tr>
                         </thead>
                         <tbody>
                             <t t-set="qty" t-value="0"/>
-                            <t t-set="unit_p" t-value="0"/>
                             <t t-set="amt" t-value="0"/>
                             <t t-set="current_subtotal" t-value="0"/>
+                            <t t-set="current_section" t-value="False"/>
                             <t t-set="sq_no" t-value="1"/>
+
                             <t t-foreach="o.order_line" t-as="line">
                                 <t t-set="current_subtotal" t-value="current_subtotal + line.price_subtotal" groups="account.group_show_line_subtotals_tax_excluded"/>
                                 <t t-set="current_subtotal" t-value="current_subtotal + line.price_total" groups="account.group_show_line_subtotals_tax_included"/>
 
-                                <tr t-att-class="'bg-200 fw-bold o_line_section' if line.display_type == 'line_section' else 'fst-italic o_line_note' if line.display_type == 'line_note' else ''">
-                                    <t t-if="not line.display_type">
-                                        <td>
-                                            <t t-if="line.product_id.name">
-                                                <span t-esc="sq_no" class="content_text"/>
-                                                <t t-set="sq_no" t-value="sq_no+1"/>
-                                            </t>
-                                        </td>
-                                        <td id="product">
-                                            <b><span t-field="line.product_id.name"/></b><br/>
+                                <tr t-if="not line.display_type">
+                                    <td class="po-col-sr">
+                                        <span t-esc="sq_no"/>
+                                        <t t-set="sq_no" t-value="sq_no + 1"/>
+                                    </td>
+                                    <td class="po-col-desc po-line-desc">
+                                        <div class="po-product-name">
+                                            <span t-field="line.product_id.name"/>
+                                        </div>
+                                        <div class="po-muted">
                                             <span t-field="line.name"/>
-                                        </td>
-                                        <td id="product">
-                                                <span t-field="line.product_id.purchase_hsn.hsnsac_code"/>
-
-                                        </td>
-                                        <td name="td_taxes">
-                                            <span t-esc="', '.join(map(lambda x: x.description or x.name, line.taxes_id))"/>
-                                        </td>
-<!--                                        <td class="text-center">-->
-<!--                                            <span t-field="line.date_planned"/>-->
-<!--                                        </td>-->
-                                        <td class="text-end">
-                                            <span t-field="line.product_qty"/>
-                                            <t t-set="qty" t-value="qty + line.product_qty"/>
-                                            <span t-field="line.product_uom.name" groups="uom.group_uom"/>
-                                        </td>
-                                        <td class="text-end">
-                                            <span t-field="line.price_unit"/>
-                                            <t t-set="unit_p" t-value="unit_p + line.product_qty"/>
-                                        </td>
-                                        <td class="text-end">
-                                            <span t-field="line.price_subtotal"
-                                                  t-options='{"widget": "monetary", "display_currency": o.currency_id}'/>
-                                            <t t-set="amt" t-value="amt + line.price_subtotal"/>
-                                        </td>
-                                    </t>
-                                    <t t-if="line.display_type == 'line_section'">
-                                        <td colspan="99" id="section">
-                                            <span t-field="line.name"/>
-                                        </td>
-                                        <t t-set="current_section" t-value="line"/>
-                                        <t t-set="current_subtotal" t-value="0"/>
-                                    </t>
-                                    <t t-if="line.display_type == 'line_note'">
-                                        <td colspan="99" id="note">
-                                            <span t-field="line.name"/>
-                                        </td>
-                                    </t>
+                                        </div>
+                                    </td>
+                                    <td class="po-col-hsn">
+                                        <span t-esc="line.product_id.l10n_in_hsn_code or ''"/>
+                                    </td>
+                                <td class="po-col-tax">
+                                    <span t-esc="', '.join(map(lambda x: (x.description or x.name), line.tax_ids))"
+                                              id="line_tax_ids"/>
+                                </td>
+                                    <td class="po-col-qty">
+                                        <span t-field="line.product_qty"/>
+                                        <t t-set="qty" t-value="qty + line.product_qty"/>
+                                        <span t-field="line.product_uom_id.name" groups="uom.group_uom"/>
+                                    </td>
+                                    <td class="po-col-rate">
+                                        <span t-field="line.price_unit"/>
+                                    </td>
+                                    <td class="po-col-amt">
+                                        <span t-esc="o.currency_id.symbol or ''"/>
+                                        <span> </span>
+                                        <span t-esc="'%.2f' % line.price_subtotal"/>
+                                        <t t-set="amt" t-value="amt + line.price_subtotal"/>
+                                    </td>
                                 </tr>
-<!--                                <tr>-->
-<!--                                    <td colspan="4">Total</td>-->
-<!--                                    <td class="text-right"><span t-esc="qty"/></td>-->
-<!--                                    <td class="text-right"><span t-esc="unit_p"/></td>-->
-<!--                                    <td class="text-right"><span t-esc="amt"/></td>-->
-<!--                                </tr>-->
+
+                                <tr t-if="line.display_type == 'line_section'" class="po-section-row">
+                                    <td colspan="7">
+                                        <span t-field="line.name"/>
+                                    </td>
+                                </tr>
+                                <t t-if="line.display_type == 'line_section'">
+                                    <t t-set="current_section" t-value="line"/>
+                                    <t t-set="current_subtotal" t-value="0"/>
+                                </t>
+
+                                <tr t-if="line.display_type == 'line_note'" class="po-note-row">
+                                    <td colspan="7">
+                                        <span t-field="line.name"/>
+                                    </td>
+                                </tr>
+
                                 <t t-if="current_section and (line_last or o.order_line[line_index+1].display_type == 'line_section')">
-                                    <tr class="is-subtotal text-end">
-                                        <td colspan="99" id="subtotal">
-                                            <strong class="mr16">Subtotal</strong>
-                                            <span
-                                                    t-esc="current_subtotal"
-                                                    t-options='{"widget": "monetary", "display_currency": o.currency_id}'
-                                            />
+                                    <tr class="po-subtotal-row">
+                                        <td colspan="7">
+                                            <strong>Subtotal: </strong>
+                                        <span t-esc="o.currency_id.symbol or ''"/>
+                                        <span> </span>
+                                        <span t-esc="'%.2f' % current_subtotal"/>
                                         </td>
                                     </tr>
                                 </t>
                             </t>
-                             <tr>
-                                    <td colspan="4">Total</td>
-                                    <td class="text-right"><span t-esc="qty"/></td>
-                                    <td class="text-right"><span t-esc="unit_p"/></td>
-                                    <td class="text-right"><span t-esc="amt"/></td>
-                                </tr>
+
+                            <tr class="po-total-row">
+                                <td colspan="4" class="po-right">Total</td>
+                                <td class="po-col-qty"><span t-esc="qty"/></td>
+                                <td class="po-col-rate"></td>
+<td class="po-col-amt">
+    <span t-esc="o.currency_id.symbol or ''"/>
+    <span> </span>
+    <span t-esc="'%.2f' % amt"/>
+</td>
+                            </tr>
                         </tbody>
                     </table>
 
-<!--                    <div class="clearfix mb-4 mt-4">-->
-                        <!--                        <div id="total" class="row">-->
-                        <!--                            <div class="col">-->
-                    <div>
-                        <div>
-                            <table style="page-break-inside: avoid; width:38%; float:right;border: 1px solid">
-                                <!-- Tax totals -->
-                                <t t-set="tax_totals" t-value="o.tax_totals"/>
-                                <t t-call="account.document_tax_totals"/>
-                                <!-- Payments -->
-                            </table>
-                            <!--                            </div>-->
-                        </div>
-                    </div>
-
-                    <table style="page-break-inside: avoid;width: 100%; border-collapse: collapse">
+                    <table class="po-summary-wrap">
                         <tr>
-                            <td class="content_text" colspan="12" style="border: 1px solid">
-                                <strong style="padding: 5px" class="header_text">Amount Chargeable (in words) :
-                                </strong>
-                                <span class="content_text"
-                                      t-esc="o._compute_total_claimable_amt_words(o.amount_total).capitalize()"/>
-                                <span class="content_text">only</span>
-
-                            </td>
-                        </tr>
-                        <tr>
-                        <p t-field="o.notes" class="mt-4"/>
-                        </tr>
-                        <tr>
-                            <td style="border:1px solid;text-align: right;background-color: #FFFFFF;">
-                                <b>From
-                                    <span t-field="o.company_id.name"/>
-                                </b>
-                                <br/>
-                                <br/>
-                                <br/>
-                                <br/><br/><br/>
-                                <P style="text-align:center">This is a digitally generated purchase order, does not require signature.</P>
+                            <td class="po-summary-left"></td>
+                            <td class="po-summary-right">
+                                <table class="po-tax-table">
+                                    <t t-set="tax_totals" t-value="o.tax_totals"/>
+                                    <t t-set="currency" t-value="o.currency_id or o.company_id.currency_id"/>
+                                    <t t-call="account.document_tax_totals"/>
+                                </table>
                             </td>
                         </tr>
                     </table>
 
+                    <div class="po-amount-words">
+                        <strong>Amount Chargeable (in words): </strong>
+                        <span t-esc="o._compute_total_claimable_amt_words(o.amount_total).capitalize()"/>
+                        <span> only</span>
+                    </div>
 
-                    <!--                    <table style="width: 100%">-->
-                    <!--                        <tr>-->
-                    <!--                            <td style="width: 50%;border-right 0px; !important"/>-->
-                    <!--                            <td style="width: 50%;border-left 0px; !important;">-->
-                    <!--                                <span style="float: right;"><b>For Comfort Techno Service Private Ltd</b></span>-->
-                    <!--                                <br/><br/><br/><br/><br/><br/>-->
-                    <!--                                <br/>-->
-                    <!--                                <br/>-->
-                    <!--                                <span style="float: right;">Authorized Signatory</span>-->
-                    <!--                            </td>-->
-                    <!--                        </tr>-->
-                    <!--                    </table>-->
+                    <div class="po-note-box" t-if="o.note">
+                        <div class="po-section-head">Terms and Conditions / Notes</div>
+                        <span t-field="o.note"/>
+                    </div>
+
+                    <table class="po-sign-table">
+                        <tr>
+                            <td style="width:50%;">
+                                <div class="po-section-head">Prepared By</div>
+                                <span t-field="o.user_id"/>
+                            </td>
+                            <td style="width:50%; text-align:right;">
+                                <strong>For <span t-field="o.company_id.name"/></strong>
+                                <div class="po-sign-space"></div>
+                                <div class="po-digital-note">This is a digitally generated purchase order and does not require signature.</div>
+                            </td>
+                        </tr>
+                    </table>
+
                     <div class="oe_structure"/>
                 </div>
             </t>
@@ -260,40 +625,59 @@
         </t>
     </template>
 
-
-    <!--     #header and layout -->
+    <!-- Header and layout for WITHOUT LOGO report -->
     <template id="purchase_layout_stripped_invoice_without_logo">
         <div t-attf-class="header o_company_#{company.id}_layout">
         </div>
+
         <div t-attf-class="article o_report_layout_striped o_company_#{company.id}_layout"
-             t-att-data-oe-model="o and o._name" t-att-data-oe-id="o and o.id"
+             t-att-data-oe-model="o and o._name"
+             t-att-data-oe-id="o and o.id"
              t-att-data-oe-lang="o and o.env.context.get('lang')">
             <t t-raw="0"/>
         </div>
-        <div t-attf-class="footer o_boxed_footer o_company_#{company.id}_layout">
-            <div class="text-center">
 
+        <div t-attf-class="footer o_boxed_footer o_company_#{company.id}_layout">
+            <div style="font-family: Arial, Helvetica, sans-serif; font-size:9px; color:#647085; text-align:center; border-top:1px solid #d7dee8; padding-top:4px;">
+                Page <span class="page"/> of <span class="topage"/>
             </div>
         </div>
     </template>
+
     <template id="report_purchase_layout">
         <t t-if="not o" t-set="o" t-value="doc"/>
         <t t-if="not company">
-            <!--  Multicompany  -->
             <t t-if="company_id">
                 <t t-set="company" t-value="company_id"/>
             </t>
             <t t-elif="o and 'company_id' in o">
                 <t t-set="company" t-value="o.company_id.sudo()"/>
             </t>
-            <t t-else="else">
+            <t t-else="">
                 <t t-set="company" t-value="res_company"/>
             </t>
         </t>
+
         <t t-call="csspl_india.purchase_layout_stripped_invoice_without_logo">
             <t t-raw="0"/>
         </t>
     </template>
+
+    <record id="paperformat_purchase_order_without_logo_tight" model="report.paperformat">
+        <field name="name">Purchase Order Without Logo Tight</field>
+        <field name="default" eval="False"/>
+        <field name="format">A4</field>
+        <field name="page_height">0</field>
+        <field name="page_width">0</field>
+        <field name="orientation">Portrait</field>
+        <field name="margin_top">18</field>
+        <field name="margin_bottom">10</field>
+        <field name="margin_left">5</field>
+        <field name="margin_right">5</field>
+        <field name="header_line" eval="False"/>
+        <field name="header_spacing">0</field>
+        <field name="dpi">90</field>
+    </record>
 
     <record id="action_report_purchase_order_inherit" model="ir.actions.report">
         <field name="name">Purchase Order Without Logo</field>
@@ -305,8 +689,8 @@
             (object.state in ('draft', 'sent') and 'Request for Quotation - %s' % (object.name) or
             'Purchase Order - %s' % (object.name))</field>
         <field name="binding_model_id" ref="purchase.model_purchase_order"/>
+        <field name="paperformat_id" ref="csspl_india.paperformat_purchase_order_without_logo_tight"/>
         <field name="binding_type">report</field>
     </record>
-
 
 </odoo>
