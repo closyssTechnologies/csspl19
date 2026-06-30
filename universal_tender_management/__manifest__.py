@@ -1,6 +1,6 @@
 {
     'name': 'CSS Universal Tender Management',
-    'version': '16.0.1.0.0',
+    # 'version': '16.0.1.0.0',
     'category': 'Operations',
     'summary': 'Universal Tender Management System',
     'author': 'Closyss Technologies',

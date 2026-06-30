@@ -18,7 +18,7 @@ class TenderMaster(models.Model):
     contract_duration = fields.Char(tracking=True)
     owner_id = fields.Many2one('res.users', default=lambda self: self.env.user,tracking=True)
     stage_id = fields.Many2one(
-        'tender.stage',group_expand='_group_expand_stage_id',
+        'tender.stage',group_expand='_group_expand_stage_ids',
         default=lambda self: self.env.ref(
             'universal_tender_management.stage_identified'
         ),tracking=True
@@ -92,6 +92,14 @@ class TenderMaster(models.Model):
             rec.stage_id = lost_stage.id
             rec.message_post(body=f"{rec.name} has been mark as lost.")
 
+    # @api.model
+    # def _group_expand_stage_id(self, stages, domain, order):
+    #     return self.env['tender.stage'].search([], order=order)
+
     @api.model
-    def _group_expand_stage_id(self, stages, domain, order):
-        return self.env['tender.stage'].search([], order=order)
+    def _group_expand_stage_ids(self, stages, domain):
+        """Read group customization in order to display all the stages in the
+        Kanban view, even if they are empty.
+        """
+        stage_ids = stages.sudo()._search([], order=stages._order)
+        return stages.browse(stage_ids)
