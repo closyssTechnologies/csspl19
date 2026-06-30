@@ -7,6 +7,7 @@ from odoo.exceptions import ValidationError
 
 class ContactCust(models.TransientModel):
     _name = "contact.cust"
+    _description = 'Contact Customer'
 
     import_type = fields.Selection([('parent', 'Parent'), ('child', 'Child')], required=True)
     load_file = fields.Binary("load file", required=True)
@@ -181,6 +182,7 @@ class ContactCust(models.TransientModel):
 
 class IfscUpdate(models.TransientModel):
     _name = "ifsc.update"
+    _description = "IFSC Update"
 
     load_file_ic = fields.Binary("load file")
 

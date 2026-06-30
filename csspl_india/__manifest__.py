@@ -30,9 +30,10 @@
              'wizard/reason_wizard.xml',
              'wizard/send_to_checker.xml',
              'wizard/import_contact_bank.xml',
-             'reports/missing_data.xml',
+             # 'reports/missing_data.xml',
              'reports/journal_voucher.xml',
              'views/account.xml',
+             'data/data.xml'
              ],
     'website': 'https://planet-odoo.com/',
     'installable': True,

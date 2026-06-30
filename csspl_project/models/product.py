@@ -8,7 +8,7 @@ class ProductTemplateInherit(models.Model):
     order_type_product = fields.Selection([('civil', 'Civil'), ('electrical', 'Electrical'), ('plumbing', 'Plumbing'),
                                            ('fire_sprinkler', 'Fire Sprinkler'), ('structural', 'Structural')], tracking=True)
     order_type_product_id = fields.Many2one('work.order.type')
-    kit_ids = fields.One2many('product.kit', 'product_templ_id', auto_join=True)
+    kit_ids = fields.One2many('product.kit', 'product_templ_id')
 
     name = fields.Char('Name', index='trigram', required=True, translate=True, tracking=True)
     # type = fields.Selection(

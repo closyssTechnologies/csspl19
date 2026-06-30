@@ -177,7 +177,10 @@
                        groups="csspl_project.priority_star_visible"/>
             </xpath>
             <xpath expr="//field[@name='date']" position="after">
-                <field name="bank_date" string="Transfer Date"/>
+                <field name="bank_date" string="Transfer Date" options="{'numeric': true}"/>
+            </xpath>
+              <xpath expr="//field[@name='date']" position="attributes">
+                 <attribute name="options">{'numeric': true}</attribute>
             </xpath>
         </field>
     </record>
@@ -192,6 +195,9 @@
                 <field name="contact_type" optional="hide"/>
                 <field name="analytics_account_id" optional="show"/>
                 <field name="analytics_plan_id" optional="show"/>
+            </xpath>
+            <xpath expr="//field[@name='date']" position="attributes">
+                <attribute name="options">{'numeric': true}</attribute>
             </xpath>
         </field>
     </record>
@@ -231,6 +237,7 @@
             <xpath expr="//field[@name='journal_id']" position="after">
                 <field name="payment_month_id" required="1"/>
                 <field name="payment_for_id" readonly="state in ('posted', 'cancel')"/>
+                <field name="payment_for" readonly="state in ('posted', 'cancel')"/>
                 <field name="batch_payment_id" readonly="1"/>
             </xpath>
             <xpath expr="//div[@name='button_box']" position="inside">
@@ -363,11 +370,11 @@
             <xpath expr="//form" position="inside">
                 <field name="payment_ids" invisible="1"/>
             </xpath>
-            <xpath expr="//page[@name='aml_tab']//field[@name='line_ids']" position="attributes">
-                <attribute name="readonly">payment_ids != []</attribute>
-                <!--                <attribute name="attrs">{'readonly': [('payment_ids', '!=', False), ('move_type', '=', 'entry')]}</attribute>-->
-                <!--                <attribute name="readonly">[('payment_ids', '!=', False)]</attribute>-->
-            </xpath>
+<!--            <xpath expr="//page[@name='aml_tab']//field[@name='line_ids']" position="attributes">-->
+<!--                <attribute name="readonly">payment_ids != []</attribute>-->
+<!--                &lt;!&ndash;                <attribute name="attrs">{'readonly': [('payment_ids', '!=', False), ('move_type', '=', 'entry')]}</attribute>&ndash;&gt;-->
+<!--                &lt;!&ndash;                <attribute name="readonly">[('payment_ids', '!=', False)]</attribute>&ndash;&gt;-->
+<!--            </xpath>-->
         </field>
     </record>
 </odoo>

@@ -42,6 +42,12 @@ class AccountMoveInherit(models.Model):
     tds_amount = fields.Float(string="TDS")
     batch_payment_id = fields.Many2one(related='origin_payment_id.batch_payment_id')
 
+    # Force the journal to show in invoice, even if one option exists
+    @api.depends('suitable_journal_ids')
+    def _compute_show_journal(self):
+        for move in self:
+            move.show_journal = len(move.suitable_journal_ids) >= 1
+
     @api.constrains('line_ids', 'invoice_line_ids')
     def _check_non_zero_entries(self):
         for move in self:
@@ -311,7 +317,7 @@ class AccountMoveInherit(models.Model):
     def action_post(self):
         res = super(AccountMoveInherit, self).action_post()
         for invoice in self:
-            for line in invoice.line_ids.filtered(lambda l: l.display_type == 'payment_term' and l.move_type in (
+            for line in invoice.invoice_line_ids.filtered(lambda l: l.display_type == 'payment_term' and l.move_type in (
                     'out_invoice', 'out_refund', 'in_invoice', 'in_refund')):
                 if self._origin.move_type == 'out_invoice':
                     if not line.analytic_distribution:
@@ -421,6 +427,7 @@ class ResSettings(models.TransientModel):
 
 class ExcelMergeWizard(models.TransientModel):
     _name = 'excel.merge.wizard'
+    _description = 'Excel Wizard To merge'
 
     file_name = fields.Binary(string='Binary')
     summary_data = fields.Char(string='Filename')
@@ -459,7 +466,8 @@ class ExcelMergeWizard(models.TransientModel):
                 if line.batch_payment_id.journal_id.bank_id.bic[0:4] == line.partner_bank_id.bank_id.bic[0:4]:
                     pay_method = "I"
                 elif line.amount > 200000:
-                    current_time = datetime.datetime.now(pytz.timezone('Asia/Kolkata')).time()
+                    # current_time = datetime.datetime.now(pytz.timezone('Asia/Kolkata')).time()
+                    current_time = fields.Datetime.context_timestamp(self, fields.Datetime.now()).time()
                     if current_time >= time(15, 0):
                         pay_method = "N"
                     else:
@@ -512,7 +520,7 @@ class AccountBatchPaymentInherit(models.Model):
 
     rej_reason = fields.Text('Reject Reason', tracking=True)
     subject_line = fields.Char('Subject Line')
-    attachment_batch = fields.Binary(string='Mail Attachment', attachment=True, tracking=True)
+    attachment_batch = fields.Binary(string='Mail Attachment', attachment=True)
     working_attachment = fields.Binary(string='Working Attachment', attachment=True, tracking=True)
     pdf_drawing_name = fields.Char(tracking=True)
     pdf_attachment_name = fields.Char(tracking=True)
@@ -520,6 +528,7 @@ class AccountBatchPaymentInherit(models.Model):
     is_checked = fields.Boolean("Checked", tracking=True, copy=False, default=False)
     checker_id = fields.Many2one('res.users', "Checker")
     is_reject = fields.Boolean()
+    # temporarily commented
     state = fields.Selection([
         ('draft', 'New'),
         ('submitted', 'Submitted'),
@@ -528,9 +537,9 @@ class AccountBatchPaymentInherit(models.Model):
         ('management_approved', 'Management Approved'),
         ('bank_upload', 'Bank Upload'),
         ('pending_transfer', 'Pending For Transfer'),
-        ('sent', 'Transfered'),
+        ('sent', 'Transferred'),
         ('reconciled', 'Reconciled'),
-    ], store=True, compute='_compute_state', default='draft', track_visibility='onchange')
+    ], store=True, compute='_compute_state', default='draft', tracking=True)
 
     ref_bank_no = fields.Char('Reference Bank No', tracking=True)
     analytics_account_id = fields.Many2one('account.analytic.account', string='Analytics Account')
@@ -556,6 +565,7 @@ class AccountBatchPaymentInherit(models.Model):
         string="Custom Boolean", default=False,
         compute='_compute_is_amt',
     )
+    prioritys = fields.Boolean()
 
     def write(self, vals):
         if self.payment_ids:
@@ -642,7 +652,7 @@ class AccountBatchPaymentInherit(models.Model):
             'context': {'active_id': self.ids},
 
         }
-
+    # # temporarily commmented
     def resend_for_approval(self):
         for rec in self.cancelled_payments_ids:
             rec.batch_payment_id = self.id
@@ -749,6 +759,7 @@ class AccountBatchPaymentInherit(models.Model):
                 batch.state = 'reconciled'
             elif batch.payment_ids and all(pay.is_sent for pay in batch.payment_ids):
                 batch.state = 'sent'
+            # temporarily commented
             elif batch.to_check == True:
                 batch.state = 'submitted'
             elif batch.is_checked == True:
@@ -756,6 +767,7 @@ class AccountBatchPaymentInherit(models.Model):
             elif batch.is_reject == True:
                 batch.state = 'reject'
 
+    # temporarily commented
     def send_for_checking(self):
         self.state_mail_submitted()
         return {
@@ -766,7 +778,7 @@ class AccountBatchPaymentInherit(models.Model):
             'payment_id': self.id,
             'type': 'ir.actions.act_window'
         }
-
+    # # temporarily commmented
     def button_set_checked(self):
         for payment in self:
             payment.to_check = False
@@ -774,6 +786,7 @@ class AccountBatchPaymentInherit(models.Model):
             payment.is_checked_approve = True
             payment.state_mail_approved()
 
+    # # temporarily commmented
     def reject(self):
         for move in self:
             if not move.rej_reason:
@@ -792,23 +805,23 @@ class AccountBatchPaymentInherit(models.Model):
                 payment.batch_payment_id = False
                 payment.action_cancel()
 
-            template = self.env.ref('csspl_india.mail_template_of_batch_rejection')
-            if move.payment_ids:
-                requestors = move.payment_ids.mapped('request_by')
-            else:
-                requestors = move.cancelled_payments_ids.mapped('request_by')
-            email_list = list(filter(None, requestors.mapped('email')))
-            email_list.extend([
-                'ayadav@cssindia.in',
-                'singhpooja@cssindia.in',
-            ])
-            emails = ','.join(set(email_list))
-            if emails:
-                template.email_to = emails
-            else:
-                template.email_to = False
-            template.send_mail(move.id, force_send=True)
-            move.message_post(body="Mail has been sent to: %s" % (emails or "No recipients"))
+            # template = self.env.ref('csspl_india.mail_template_of_batch_rejection')
+            # if move.payment_ids:
+            #     requestors = move.payment_ids.mapped('request_by')
+            # else:
+            #     requestors = move.cancelled_payments_ids.mapped('request_by')
+            # email_list = list(filter(None, requestors.mapped('email')))
+            # email_list.extend([
+            #     'ayadav@cssindia.in',
+            #     'singhpooja@cssindia.in',
+            # ])
+            # emails = ','.join(set(email_list))
+            # if emails:
+            #     template.email_to = emails
+            # else:
+            #     template.email_to = False
+            # template.send_mail(move.id, force_send=True)
+            # move.message_post(body="Mail has been sent to: %s" % (emails or "No recipients"))
 
     def action_draft(self):
         for payment in self:
@@ -1041,6 +1054,7 @@ class AccountBatchPaymentInherit(models.Model):
     #         sendmail = self.env['mail.mail'].sudo().create(mail_values)
     #         sendmail.send()
 
+    # temporarily commmented
     def management_approve(self):
         for rec in self:
             note = "Batch payment %s was Approved on %s by %s" % (
@@ -1051,6 +1065,7 @@ class AccountBatchPaymentInherit(models.Model):
             rec.is_checked = False
             rec.state = 'management_approved'
 
+    # temporarily commented
     def batch_management_approval(self):
         for rec in self:
             if rec.state == 'approved':
@@ -1369,6 +1384,7 @@ class AccountInvoiceReport(models.Model):
 class CustomExcel(models.TransientModel):
     _name = 'custom.excel.class'
     _rec_name = 'summary_data'
+    _description = 'Custom Excel'
 
     file_name = fields.Binary(string='Binary')
     summary_data = fields.Char(string='Filename')
@@ -1432,8 +1448,10 @@ class CustomExcel(models.TransientModel):
             if line.batch_payment_id.journal_id.bank_id.bic[0:4] == line.partner_bank_id.bank_id.bic[0:4]:
                 pay_method = "I"
             elif line.amount > 200000:
-                current_time = datetime.datetime.now(pytz.timezone('Asia/Kolkata')).time()
-                if current_time >= datetime.time(15, 0):
+                # current_time = datetime.datetime.now(pytz.timezone('Asia/Kolkata')).time()
+                current_time = fields.Datetime.context_timestamp(self, fields.Datetime.now()).time()
+                if current_time >= time(15, 0):
+                # if current_time >= datetime.time(15, 0):
                     pay_method = "N"
                 else:
                     pay_method = "R"
@@ -1509,8 +1527,10 @@ class CustomExcel(models.TransientModel):
             if line.batch_payment_id.journal_id.bank_id.bic[0:4] == line.partner_bank_id.bank_id.bic[0:4]:
                 pay_method = "I"
             elif line.amount > 200000:
-                current_time = datetime.datetime.now(pytz.timezone('Asia/Kolkata')).time()
-                if current_time >= datetime.time(15, 0):
+                # current_time = datetime.datetime.now(pytz.timezone('Asia/Kolkata')).time()
+                current_time = fields.Datetime.context_timestamp(self, fields.Datetime.now()).time()
+                # if current_time >= datetime.time(15, 0):
+                if current_time >= time(15, 0):
                     pay_method = "N"
                 else:
                     pay_method = "R"

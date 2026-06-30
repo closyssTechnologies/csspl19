@@ -63,9 +63,9 @@ class TaskInvoices(models.TransientModel):
     _name = 'task.invoices'
     _description = "Transient model to enter quantity, amount and invoice product for Invoice creation"
 
-    task_id = fields.Many2one('project.task', readonly=1)
+    task_id = fields.Many2one('project.task', readonly=True)
     product_id = fields.Many2one('product.product', domain=[('detailed_type', '=', 'service')])
-    task_amount = fields.Float(readonly=1)
+    task_amount = fields.Float(readonly=True)
     quantity = fields.Float()
     amount = fields.Float(string="Unit Price")
     amount_total = fields.Float(string="Total", readonly="1")
@@ -106,7 +106,7 @@ class BOQMaterialsWiz(models.Model):
     uom_id = fields.Many2one('uom.uom', related="product_id.uom_id")
     demand_qty = fields.Float()
     quantity = fields.Float()
-    material_ids = fields.One2many('boq.materials.wiz', 'parent_id', auto_join=True)
+    material_ids = fields.One2many('boq.materials.wiz', 'parent_id')
     parent_id = fields.Many2one('boq.materials.wiz')
     purchase_order = fields.Many2one('purchase.order')
     description = fields.Char(string="Description")
