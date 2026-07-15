@@ -308,13 +308,9 @@ class AccountPaymentInherit(models.Model):
                 reversal_id = self.env['account.move.reversal'].create({'journal_id':self.journal_id.id,'date':date.today(),'move_ids':self.move_id.ids})
                 # Run reverse (IGNORE return)
                 reversal_id.refund_moves()
-
                 # Now get created move from wizard
                 reversed_move = reversal_id.new_move_ids
-
                 # Link to payment
-                self.reversal_move_id = reversed_move.id
-
                 self.reversal_move_id = reversed_move.id
                 # self.reversal_move_id = reversal_move_id.id
                 # return {
@@ -322,11 +318,8 @@ class AccountPaymentInherit(models.Model):
                 #     'type': 'ir.actions.act_window',
                 #     'res_model': 'account.move',
                 #     'view_mode': 'form',
-                #     'res_id': reversal_move_id.id,
+                #     'domain': [('id', 'in', self.reversal_move_id)],
                 # }
-
-
-
             # if self.reversed_entry_id:
             #     raise ValidationError("A reverse payment entry has already been created")
             # return_vend_pay = self.env['account.payment'].create(
