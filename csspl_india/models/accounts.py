@@ -16,6 +16,7 @@ import xlwt
 from openpyxl import Workbook
 from babel.numbers import format_decimal
 from collections import defaultdict
+from odoo.tools import SQL
 
 
 class AccountMoveInherit(models.Model):
@@ -1339,6 +1340,18 @@ class AccountInvoiceReport(models.Model):
     _inherit = "account.invoice.report"
 
     service_date = fields.Date('Service Date')
+
+    # _depends = {
+    #     **AccountInvoiceReport._depends,
+    #     'account.move': AccountInvoiceReport._depends['account.move'] + ['service_date'],
+    # }
+
+    @api.model
+    def _select(self):
+        return SQL(
+            "%s, move.service_date AS service_date",
+            super()._select(),
+        )
 
     #
     #     @api.model
