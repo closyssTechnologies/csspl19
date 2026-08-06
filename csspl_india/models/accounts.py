@@ -591,24 +591,8 @@ class AccountBatchPaymentInherit(models.Model):
                     batch.analytics_account_id = first_account.id
                 else:
                     batch.analytics_account_id = False
-                # first_plan = first_payment.analytics_plan_id
-
-                # inconsistent_account = any(
-                #     p.analytics_account_id != first_account for p in payments
-                # )
-                # inconsistent_plan = any(
-                #     p.analytics_plan_id != first_plan for p in payments
-                # )
-                #
-                # if inconsistent_account or inconsistent_plan:
-                #     raise ValidationError(
-                #         f"All Batch must have the same Analytics Account ({first_account.name}) and Analytics Plan ({first_plan.name}).")
-                # else:
-                #     pass
             else:
                 continue
-
-    # amt_total = fields.Char(string='Total Amount')
 
     @api.depends('amount')
     def _compute_is_amt(self):

@@ -133,6 +133,7 @@ class AccountPaymentInherit(models.Model):
         check_company=True)
     reversal_move_id = fields.Many2one('account.move')
 
+
     @api.onchange('payment_for_id')
     def compute_destination_account(self):
         for rec in self:
@@ -286,11 +287,21 @@ class AccountPaymentInherit(models.Model):
     #         raise ValidationError("Kindly reset to draft the reversal entry first.")
     #     return super().action_draft()
 
+    @api.onchange('payment_month_id')
+    def _update_payment_month_in_journal_entries(self):
+        for payment in self:
+            if payment.move_id:
+                payment.move_id.payment_month_id = payment.payment_month_id.id
+                payment.move_id.line_ids.write({
+                    'payment_month_id': payment.payment_month_id.id,
+                })
+
     def action_post(self):
         self.onchange_payment_month_id()
-        # if self.reversed_entry_id and self.reversed_entry_id.state != 'posted':
-        #     raise ValidationError("Kindly post the entry from which this reversal entry was created")
-        return super().action_post()
+        res = super().action_post()
+        self._update_payment_month_in_journal_entries()
+        return res
+
 
     def button_open_reversal_entry(self):
         self.ensure_one()
@@ -477,6 +488,7 @@ class AccountMoveInherit(models.Model):
         ('customer', 'Customer'),
         ('supplier', 'Vendor'),
     ], default='customer', tracking=True, required=True)
+    payment_month_id = fields.Many2one('payments.month', string="Payment Month")
 
 
 
@@ -557,6 +569,7 @@ class AccountMoveLineInherit(models.Model):
         domain=False,
         ondelete="restrict",
     )
+    payment_month_id = fields.Many2one('payments.month', string="Payment Month")
 
 
 class AccountTaxInherit(models.Model):
