@@ -287,7 +287,6 @@ class AccountPaymentInherit(models.Model):
     #         raise ValidationError("Kindly reset to draft the reversal entry first.")
     #     return super().action_draft()
 
-    @api.onchange('payment_month_id')
     def _update_payment_month_in_journal_entries(self):
         for payment in self:
             if payment.move_id:
