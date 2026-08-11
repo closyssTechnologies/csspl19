@@ -562,6 +562,7 @@ class AccountMoveLineInherit(models.Model):
         ondelete="restrict",
     )
     payment_month_id = fields.Many2one('payments.month', string="Payment Month")
+    utr_no = fields.Char(related='payment_id.utr_no', string="UTR No", store=True)
 
 
 class AccountTaxInherit(models.Model):
