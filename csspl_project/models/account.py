@@ -742,6 +742,8 @@ class AccountInvoiceReport(models.Model):
 
                 COALESCE(partner.country_id, commercial_partner.country_id) AS country_id,
                 line.currency_id                                            AS currency_id,
+                move.team_id                                                AS team_id,
+                move.service_date                                           AS service_date,
                 account_analytic_account.id                                 AS analytic_account_id
             '''
         )
