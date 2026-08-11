@@ -16,7 +16,8 @@ from odoo.tools import (
     get_lang,
     groupby,
     is_html_empty,
-    sql
+    sql,
+    SQL
 )
 
 import xmlrpc.client
@@ -59,14 +60,6 @@ class AnalyticPlanInherit(models.Model):
     is_dashboard = fields.Boolean(help="Enable it if you want to display it on Dashboard")
 
 
-class AccountInvoiceReport(models.Model):
-    _inherit = 'account.invoice.report'
-
-    team_id = fields.Many2one(comodel_name='crm.team', string="Sales Team")
-
-    # def _select(self):
-    #     return super()._select() + ", move.team_id as team_id"
-    #     pass
 
 
 class ResPartner(models.Model):
@@ -674,6 +667,106 @@ class L10n_InWithholdWizard(models.TransientModel):
                             })
 
         return super().action_create_and_post_withhold()
+
+
+class AccountInvoiceReport(models.Model):
+    _inherit = 'account.invoice.report'
+
+    team_id = fields.Many2one(comodel_name='crm.team', string="Sales Team")
+    analytic_account_id = fields.Many2one('account.analytic.account', string='Analytic Account', readonly=True)
+
+    _depends = {
+        'account.move.line': ['analytic_distribution'],
+    }
+
+    @api.model
+    def _select(self) -> SQL:
+        return SQL(
+            '''
+            SELECT
+                line.id,
+                line.move_id,
+                line.product_id,
+                line.account_id,
+                line.journal_id,
+                line.company_id,
+                line.company_currency_id,
+                line.partner_id AS commercial_partner_id,
+                account.account_type AS user_type,
+                move.state,
+                move.move_type,
+                move.partner_id,
+                move.invoice_user_id,
+                move.fiscal_position_id,
+                move.payment_state,
+                move.invoice_date,
+                move.invoice_date_due,
+                uom_template.id                                             AS product_uom_id,
+                template.categ_id                                           AS product_categ_id,
+
+                -- Weighted measures
+                (line.quantity * COALESCE(uom_line.factor, 1) / NULLIF(COALESCE(uom_template.factor, 1), 0.0) * (CASE WHEN move.move_type IN ('in_invoice','out_refund','in_receipt') THEN -1 ELSE 1 END)) 
+                    * COALESCE((line.analytic_distribution ->> keys.analytic_account_id_str)::float, 100.0) / 100.0 
+                                                                            AS quantity,
+                (line.price_subtotal * (CASE WHEN move.move_type IN ('in_invoice','out_refund','in_receipt') THEN -1 ELSE 1 END)) 
+                    * COALESCE((line.analytic_distribution ->> keys.analytic_account_id_str)::float, 100.0) / 100.0 
+                                                                            AS price_subtotal_currency,
+                (-line.balance * account_currency_table.rate) 
+                    * COALESCE((line.analytic_distribution ->> keys.analytic_account_id_str)::float, 100.0) / 100.0 
+                                                                            AS price_subtotal,
+                (line.price_total * (CASE WHEN move.move_type IN ('in_invoice','out_refund','in_receipt') THEN -1 ELSE 1 END) / move.invoice_currency_rate) 
+                    * COALESCE((line.analytic_distribution ->> keys.analytic_account_id_str)::float, 100.0) / 100.0 
+                                                                            AS price_total,
+                (line.price_total * (CASE WHEN move.move_type IN ('in_invoice','out_refund','in_receipt') THEN -1 ELSE 1 END)) 
+                    * COALESCE((line.analytic_distribution ->> keys.analytic_account_id_str)::float, 100.0) / 100.0 
+                                                                            AS price_total_currency,
+
+                -- Average price, margins and inventory value weighted
+                (-COALESCE(
+                   (line.balance / NULLIF(line.quantity, 0.0)) * (CASE WHEN move.move_type IN ('in_invoice','out_refund','in_receipt') THEN -1 ELSE 1 END)
+                   / NULLIF(COALESCE(uom_line.factor, 1), 0.0) * COALESCE(uom_template.factor, 1),
+                   0.0) * account_currency_table.rate)
+                   * COALESCE((line.analytic_distribution ->> keys.analytic_account_id_str)::float, 100.0) / 100.0
+                                                                            AS price_average,
+                (CASE
+                    WHEN move.move_type NOT IN ('out_invoice', 'out_receipt', 'out_refund') THEN 0.0
+                    WHEN move.move_type = 'out_refund' THEN account_currency_table.rate * (-line.balance + (line.quantity * COALESCE(uom_line.factor, 1) / NULLIF(COALESCE(uom_template.factor, 1), 0.0)) * COALESCE(product.standard_price -> line.company_id::text, to_jsonb(0.0))::float)
+                    ELSE account_currency_table.rate * (-line.balance - (line.quantity * COALESCE(uom_line.factor, 1) / NULLIF(COALESCE(uom_template.factor, 1), 0.0)) * COALESCE(product.standard_price -> line.company_id::text, to_jsonb(0.0))::float)
+                END) * COALESCE((line.analytic_distribution ->> keys.analytic_account_id_str)::float, 100.0) / 100.0
+                                                                            AS price_margin,
+                (account_currency_table.rate * line.quantity * COALESCE(uom_line.factor, 1) / NULLIF(COALESCE(uom_template.factor, 1), 0.0) * (CASE WHEN move.move_type IN ('out_invoice','in_refund','out_receipt') THEN -1 ELSE 1 END)
+                    * COALESCE(product.standard_price -> line.company_id::text, to_jsonb(0.0))::float) 
+                    * COALESCE((line.analytic_distribution ->> keys.analytic_account_id_str)::float, 100.0) / 100.0 
+                                                                            AS inventory_value,
+
+                COALESCE(partner.country_id, commercial_partner.country_id) AS country_id,
+                line.currency_id                                            AS currency_id,
+                account_analytic_account.id                                 AS analytic_account_id
+            '''
+        )
+
+    @api.model
+    def _from(self) -> SQL:
+        return SQL(
+            """
+            FROM account_move_line line
+                LEFT JOIN res_partner partner ON partner.id = line.partner_id
+                LEFT JOIN product_product product ON product.id = line.product_id
+                LEFT JOIN account_account account ON account.id = line.account_id
+                LEFT JOIN product_template template ON template.id = product.product_tmpl_id
+                LEFT JOIN uom_uom uom_line ON uom_line.id = line.product_uom_id
+                LEFT JOIN uom_uom uom_template ON uom_template.id = template.uom_id
+                INNER JOIN account_move move ON move.id = line.move_id
+                LEFT JOIN res_partner commercial_partner ON commercial_partner.id = move.commercial_partner_id
+                JOIN %(currency_table)s ON account_currency_table.company_id = line.company_id
+
+                -- Unpack analytic distribution JSONB keys
+                LEFT JOIN LATERAL jsonb_object_keys(line.analytic_distribution) AS keys(analytic_account_id_str) ON TRUE
+                LEFT JOIN account_analytic_account ON account_analytic_account.id = NULLIF(keys.analytic_account_id_str, '')::integer
+            """,
+            currency_table=self.env['res.currency']._get_simple_currency_table(self.env.companies),
+        )
+
 
 
 
