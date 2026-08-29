@@ -21,7 +21,9 @@
         <field name="model">payments.month</field>
         <field name="arch" type="xml">
             <list editable="top">
-                <field name="name"/>
+                <field name="date_from"/>
+                <field name="date_to"/>
+                <field name="name" readonly="1"/>
             </list>
         </field>
     </record>
@@ -144,6 +146,9 @@
                     </h1>
                 </div>
             </xpath>
+            <xpath expr="//field[@name='date']" position="after">
+                <field name="classification_id" options="{'no_create': True, 'no_open': True}"/>
+            </xpath>
         </field>
     </record>
 
@@ -178,6 +183,7 @@
             </xpath>
             <xpath expr="//field[@name='date']" position="after">
                 <field name="bank_date" string="Transfer Date"/>
+                <field name="classification_id" optional="show"/>
             </xpath>
         </field>
     </record>
@@ -189,6 +195,7 @@
         <field name="inherit_id" ref="account.view_account_payment_tree"/>
         <field name="arch" type="xml">
             <xpath expr="//field[@name='state']" position="after">
+                <field name="classification_id" optional="show"/>
                 <field name="contact_type" optional="hide"/>
                 <field name="analytics_account_id" optional="show"/>
                 <field name="analytics_plan_id" optional="show"/>
@@ -223,7 +230,14 @@
             <!--            </xpath>-->
 
             <xpath expr="//field[@name='journal_id']" position="after">
-                <field name="payment_month_id" required="1"/>
+                <field name="classification_id" options="{'no_create': True, 'no_open': True}"/>
+                <field name="payment_month_date_from" string="Payments Month"
+                       widget="month_range_field"
+                       options="{'end_date_field': 'payment_month_date_to', 'min_precision': 'months', 'always_range': True}"
+                       required="1"/>
+                <field name="payment_month_date_to" invisible="1"/>
+                <field name="payment_month_id" invisible="1"/>
+                <field name="payment_month_display" invisible="1"/>
                 <field name="payment_for_id" readonly="state in ('posted', 'cancel')"/>
                 <field name="batch_payment_id" readonly="1"/>
             </xpath>
@@ -317,6 +331,15 @@
             </xpath>
             <xpath expr="//group[@id='header_right_group']//div[@name='journal_div']" position="attributes">
                 <attribute name="groups"/>
+            </xpath>
+            <xpath expr="//field[@name='payment_reference']" position="after">
+                <field name="classification_id" options="{'no_create': True, 'no_open': True}"/>
+            </xpath>
+            <xpath expr="//field[@name='invoice_line_ids']/list/field[@name='product_id']" position="after">
+                <field name="classification_id" optional="show" options="{'no_create': True, 'no_open': True}"/>
+            </xpath>
+            <xpath expr="//field[@name='line_ids']/list/field[@name='account_id']" position="after">
+                <field name="classification_id" optional="hide" options="{'no_create': True, 'no_open': True}"/>
             </xpath>
         </field>
     </record>

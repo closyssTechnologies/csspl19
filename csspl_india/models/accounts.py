@@ -25,7 +25,14 @@ class AccountMoveInherit(models.Model):
     po_no = fields.Char('PO No')
     po_date = fields.Date('PO Date')
     service_date = fields.Date('Service Date')
+    service_date_to = fields.Date('Service End Date')
     partner_id_line = fields.Many2one('res.partner', string="Partner Line")
+
+    @api.constrains('service_date', 'service_date_to')
+    def _check_service_dates(self):
+        for rec in self:
+            if rec.service_date and rec.service_date_to and rec.service_date_to < rec.service_date:
+                raise ValidationError(_("Service End Date cannot be earlier than Service Start Date."))
     amt = fields.Char(compute='amt_in_words', string='amt')
     bank_name = fields.Char('Bank')
     cheque_no = fields.Char(string="Check No")
