@@ -230,7 +230,7 @@
             <!--            </xpath>-->
 
             <xpath expr="//field[@name='journal_id']" position="after">
-                <field name="classification_id" options="{'no_create': True, 'no_open': True}"/>
+                <field name="classification_id" required="payment_type != 'inbound'" options="{'no_create': True, 'no_open': True}"/>
                 <field name="payment_month_date_from" string="Payments Month"
                        widget="month_range_field"
                        options="{'end_date_field': 'payment_month_date_to', 'min_precision': 'months', 'always_range': True}"

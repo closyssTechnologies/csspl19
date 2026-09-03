@@ -260,6 +260,12 @@ class AccountPaymentInherit(models.Model):
         for rec in self:
             if rec.payment_month_date_from and rec.payment_month_date_to and rec.payment_month_date_to < rec.payment_month_date_from:
                 raise ValidationError(_("Period End Date cannot be earlier than Period Start Date."))
+
+    @api.constrains('classification_id', 'payment_type')
+    def _check_classification_required(self):
+        for payment in self:
+            if payment.payment_type == 'outbound' and not payment.classification_id:
+                raise ValidationError(_("Expense Classification is mandatory for Send (Outbound) payments."))
     approval_type = fields.Many2one(comodel_name='approval.category', string='Approval_type') ## No use till yet
     approval_request = fields.Many2one(comodel_name='approval.request', string='Approval Request')
     contact_type = fields.Selection(related="partner_id.cust_partner_type", store=True)

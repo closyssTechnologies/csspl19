@@ -157,6 +157,14 @@ class ImportPaymentWizard(models.TransientModel):
                 if check_date and not check_date != 'nan':
                     date_cheque = datetime.strptime(check_date, '%d-%m-%Y')
 
+                classification_val = row.get('Expense Classification') or row.get('expense_classification') or row.get('Classification') or row.get('classification') or ''
+                classification_rec = False
+                if str(classification_val) != 'nan' and classification_val:
+                    classification_rec = self.env['expense.classification'].search([('name', '=ilike', str(classification_val).strip())], limit=1)
+
+                if payment in ('outbound', 'Send', 'send') and not classification_rec:
+                    raise ValidationError(_(f"Row {index + 2}: Expense Classification is mandatory for Send/Outbound payments."))
+
                 # Created batch payment first
                 if batch_journal_id and batch_type and b_payment_method_id:
                     followers_lst = []
@@ -171,6 +179,7 @@ class ImportPaymentWizard(models.TransientModel):
                         'analytics_plans_batch_id': analyt_plan.id,
                         # 'analytics_account_id': b_analyt_plan.id if b_analyt_plan else '',
                         'payment_method_id': b_pay_method.payment_method_id.id,
+                        'classification_id': classification_rec.id if classification_rec else False,
                     }
 
                     new_record2 = self.env['account.batch.payment'].sudo().create(vals_b)
@@ -205,7 +214,8 @@ class ImportPaymentWizard(models.TransientModel):
                     'month': month if month else '',
                     'narration': narration if narration else '',
                     'batch_payment_id': new_record2.id,
-                    'source_doc': new_record2.name
+                    'source_doc': new_record2.name,
+                    'classification_id': classification_rec.id if classification_rec else False,
                 }
                 new_record = self.env['account.payment'].sudo().create(vals_pay)
 
@@ -286,6 +296,14 @@ class ImportPaymentWizard(models.TransientModel):
                 payment_for = row.get('payment_for', 'other')
                 if payment_for == 'salary' and not month:
                     raise ValidationError("For Salary Payment month is mandatory")
+
+                classification_val = row.get('Expense Classification') or row.get('expense_classification') or row.get('Classification') or row.get('classification') or ''
+                classification_rec = False
+                if str(classification_val) != 'nan' and classification_val:
+                    classification_rec = self.env['expense.classification'].search([('name', '=ilike', str(classification_val).strip())], limit=1)
+
+                if payment in ('outbound', 'Send', 'send') and not classification_rec:
+                    raise ValidationError(_(f"Row {index + 2}: Expense Classification is mandatory for Send/Outbound payments (Customer/Vendor: {cust_name})."))
                 # elif payment_for == 'salary' and month:
                 #     if not self.env['payment.month'].search([('name', '=', month)]):
                 #         raise ValidationError(f'Payment month {month} not found in the system, Kindly verify it.')
