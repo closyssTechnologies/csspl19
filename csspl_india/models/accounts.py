@@ -1577,9 +1577,6 @@ class ResPartnerBankInherit(models.Model):
                         raise ValidationError('An account with the same account number already exists!!!')
 
 
-
-
-
 class ResPartnerInherit(models.Model):
     _inherit = "res.partner"
 

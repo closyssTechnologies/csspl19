@@ -125,7 +125,7 @@
                                 <td style="border: 1px solid; vertical-align: text-top;" colspan="3">
                                     <strong style="padding: 5px" class="header_text">Buyer Order No:</strong>
                                     <br/>
-                                    <span style="padding: 5px" t-esc="doc.po_no" class="content_text"/>
+                                    <span style="padding: 5px" t-esc="doc.ref" class="content_text"/>
 
                                 </td>
                                 <td style="border: 1px solid; vertical-align: text-top;" colspan="2">
