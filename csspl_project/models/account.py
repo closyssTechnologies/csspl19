@@ -25,12 +25,41 @@ import xmlrpc.client
 import psycopg2
 import psycopg2.extras
 
+# Master Of Expense Classification
+class ExpenseClassification(models.Model):
+    _name = 'expense.classification'
+    _description = 'Expense Classification'
+
+    name = fields.Char(string='Expense Classification', required=True)
+
+
 # Master Of Payments Month
 class PaymentsMonth(models.Model):
     _name = 'payments.month'
     _description = 'Payment Month'
 
-    name = fields.Char(String='Payments Month')
+    name = fields.Char(string='Payments Month', compute='_compute_name', store=True)
+    date_from = fields.Date(string='Start Date', required=True)
+    date_to = fields.Date(string='End Date', required=True)
+
+    @api.depends('date_from', 'date_to')
+    def _compute_name(self):
+        for rec in self:
+            if rec.date_from and rec.date_to:
+                from_str = rec.date_from.strftime('%b %Y')
+                to_str = rec.date_to.strftime('%b %Y')
+                if from_str == to_str:
+                    rec.name = from_str
+                else:
+                    rec.name = f"{from_str} to {to_str}"
+            else:
+                rec.name = False
+
+    @api.constrains('date_from', 'date_to')
+    def _check_dates(self):
+        for rec in self:
+            if rec.date_from and rec.date_to and rec.date_to < rec.date_from:
+                raise ValidationError(_("End Date cannot be earlier than Start Date."))
 
 
 class VouchersAccountsMaster(models.Model):
@@ -52,6 +81,30 @@ class HrExpenseInherit(models.Model):
     _inherit = 'hr.expense'
 
     atm_ids = fields.Many2many(comodel_name='atm.id', string='ATM ID')
+    classification_id = fields.Many2one(
+        comodel_name='expense.classification',
+        string='Expense Classification',
+        required=True,
+        default=lambda self: self.env.ref('csspl_project.expense_classification_internal', raise_if_not_found=False)
+    )
+
+    def _prepare_move_lines_vals(self):
+        res = super()._prepare_move_lines_vals()
+        if self.classification_id:
+            res['classification_id'] = self.classification_id.id
+        return res
+
+    def _prepare_payments_vals(self):
+        move_vals, payment_vals = super()._prepare_payments_vals()
+        if self.classification_id:
+            move_vals['classification_id'] = self.classification_id.id
+            if 'line_ids' in move_vals:
+                for line_cmd in move_vals['line_ids']:
+                    if line_cmd[0] == 0:  # Command.create(values)
+                        line_cmd[2]['classification_id'] = self.classification_id.id
+            payment_vals['classification_id'] = self.classification_id.id
+        return move_vals, payment_vals
+
 
 
 class AnalyticPlanInherit(models.Model):
@@ -108,8 +161,111 @@ class ResPartner(models.Model):
 class AccountPaymentInherit(models.Model):
     _inherit = 'account.payment'
 
+    classification_id = fields.Many2one('expense.classification', string='Expense Classification')
     payment_for_id = fields.Many2one('payment.for.master')
-    payment_month_id = fields.Many2one(comodel_name='payments.month', string='Payments Month', tracking=True)
+    payment_month_id = fields.Many2one(
+        comodel_name='payments.month',
+        string='Payments Month',
+        compute='_compute_payment_month_id',
+        store=True,
+        readonly=False,
+        precompute=True,
+        tracking=True
+    )
+    payment_month_date_from = fields.Date(string='From Month')
+    payment_month_date_to = fields.Date(string='To Month')
+    payment_month_display = fields.Char(
+        string='Payments Month',
+        compute='_compute_payment_month_display',
+        inverse='_inverse_payment_month_display',
+        store=True
+    )
+
+    @api.depends('payment_month_date_from', 'payment_month_date_to')
+    def _compute_payment_month_id(self):
+        for rec in self:
+            if rec.payment_month_date_from and rec.payment_month_date_to:
+                month_rec = self.env['payments.month'].search([
+                    ('date_from', '=', rec.payment_month_date_from),
+                    ('date_to', '=', rec.payment_month_date_to)
+                ], limit=1)
+                if not month_rec:
+                    from_str = rec.payment_month_date_from.strftime('%b %Y')
+                    to_str = rec.payment_month_date_to.strftime('%b %Y')
+                    if from_str == to_str:
+                        name = from_str
+                    else:
+                        name = f"{from_str} to {to_str}"
+                    month_rec = self.env['payments.month'].create({
+                        'date_from': rec.payment_month_date_from,
+                        'date_to': rec.payment_month_date_to,
+                        'name': name
+                    })
+                rec.payment_month_id = month_rec.id
+            else:
+                rec.payment_month_id = False
+
+    @api.depends('payment_month_date_from', 'payment_month_date_to')
+    def _compute_payment_month_display(self):
+        for rec in self:
+            if rec.payment_month_date_from and rec.payment_month_date_to:
+                from_str = rec.payment_month_date_from.strftime('%b %Y')
+                to_str = rec.payment_month_date_to.strftime('%b %Y')
+                if from_str == to_str:
+                    rec.payment_month_display = from_str
+                else:
+                    rec.payment_month_display = f"{from_str} to {to_str}"
+            else:
+                rec.payment_month_display = ''
+
+    def _inverse_payment_month_display(self):
+        from datetime import date
+        import calendar as cal
+        for rec in self:
+            val = (rec.payment_month_display or '').strip()
+            if not val:
+                rec.payment_month_date_from = False
+                rec.payment_month_date_to = False
+                continue
+            try:
+                if ' to ' in val:
+                    parts = val.split(' to ')
+                    from_dt = fields.Date.from_string(
+                        date(int(parts[0].strip().split()[1]),
+                             list(__import__('calendar').month_abbr).index(parts[0].strip().split()[0].capitalize()),
+                             1).isoformat()
+                    )
+                    to_month_parts = parts[1].strip().split()
+                    to_year = int(to_month_parts[1])
+                    to_month = list(__import__('calendar').month_abbr).index(to_month_parts[0].capitalize())
+                    last_day = cal.monthrange(to_year, to_month)[1]
+                    to_dt = date(to_year, to_month, last_day)
+                else:
+                    parts = val.split()
+                    from_year = int(parts[1])
+                    from_month = list(__import__('calendar').month_abbr).index(parts[0].capitalize())
+                    from_dt = date(from_year, from_month, 1)
+                    last_day = cal.monthrange(from_year, from_month)[1]
+                    to_dt = date(from_year, from_month, last_day)
+                rec.payment_month_date_from = from_dt
+                rec.payment_month_date_to = to_dt
+            except Exception:
+                raise ValidationError(_(
+                    "Invalid format for Payments Month. Use 'Mon YYYY' (e.g. Feb 2026) "
+                    "or 'Mon YYYY to Mon YYYY' (e.g. Feb 2026 to Mar 2026)."
+                ))
+
+    @api.constrains('payment_month_date_from', 'payment_month_date_to')
+    def _check_payment_month_dates(self):
+        for rec in self:
+            if rec.payment_month_date_from and rec.payment_month_date_to and rec.payment_month_date_to < rec.payment_month_date_from:
+                raise ValidationError(_("Period End Date cannot be earlier than Period Start Date."))
+
+    @api.constrains('classification_id', 'payment_type')
+    def _check_classification_required(self):
+        for payment in self:
+            if payment.payment_type == 'outbound' and not payment.classification_id:
+                raise ValidationError(_("Expense Classification is mandatory for Send (Outbound) payments."))
     approval_type = fields.Many2one(comodel_name='approval.category', string='Approval_type') ## No use till yet
     approval_request = fields.Many2one(comodel_name='approval.request', string='Approval Request')
     contact_type = fields.Selection(related="partner_id.cust_partner_type", store=True)
@@ -380,6 +536,24 @@ class ChangeJournalInBatch(models.TransientModel):
 class BatchPaymentInherit(models.Model):
     _inherit = 'account.batch.payment'
 
+    classification_id = fields.Many2one(
+        comodel_name='expense.classification',
+        string='Expense Classification',
+        compute='_compute_classification_id',
+        store=True,
+        readonly=False,
+        precompute=True
+    )
+
+    @api.depends('payment_ids.classification_id')
+    def _compute_classification_id(self):
+        for batch in self:
+            classifications = batch.payment_ids.mapped('classification_id')
+            if classifications:
+                batch.classification_id = classifications[0].id
+            elif not batch.classification_id:
+                batch.classification_id = False
+
     changing_journal = fields.Boolean(string='Allow Journal Change', default=False)
 
     priority = fields.Selection([
@@ -476,11 +650,30 @@ class AnalyticItemsInherit(models.Model):
 class AccountMoveInherit(models.Model):
     _inherit = 'account.move'
 
+    service_date = fields.Date('Service Date')
+    service_date_to = fields.Date('Service End Date')
     partner_type = fields.Selection([
         ('customer', 'Customer'),
         ('supplier', 'Vendor'),
     ], default='customer', tracking=True, required=True)
     payment_month_id = fields.Many2one('payments.month', string="Payment Month")
+    classification_id = fields.Many2one(
+        comodel_name='expense.classification',
+        string='Expense Classification',
+        compute='_compute_classification_id',
+        store=True,
+        readonly=False,
+        precompute=True
+    )
+
+    @api.depends('invoice_line_ids.classification_id', 'line_ids.classification_id')
+    def _compute_classification_id(self):
+        for move in self:
+            line = move.invoice_line_ids.filtered('classification_id') or move.line_ids.filtered('classification_id')
+            if line:
+                move.classification_id = line[0].classification_id.id
+            elif not move.classification_id:
+                move.classification_id = False
 
 
 
@@ -553,6 +746,7 @@ class AccountMoveInherit(models.Model):
 class AccountMoveLineInherit(models.Model):
     _inherit = 'account.move.line'
 
+    classification_id = fields.Many2one('expense.classification', string='Expense Classification')
     task_id = fields.Many2one('project.task')
     product_uom_id = fields.Many2one(
         comodel_name='uom.uom',
@@ -769,6 +963,40 @@ class AccountInvoiceReport(models.Model):
             """,
             currency_table=self.env['res.currency']._get_simple_currency_table(self.env.companies),
         )
+
+
+class AccountPaymentRegisterInherit(models.TransientModel):
+    _inherit = 'account.payment.register'
+
+    classification_id = fields.Many2one(
+        comodel_name='expense.classification',
+        string='Expense Classification',
+        compute='_compute_classification_id',
+        store=True,
+        readonly=False,
+        precompute=True
+    )
+
+    @api.depends('line_ids')
+    def _compute_classification_id(self):
+        for wizard in self:
+            moves = wizard.line_ids.mapped('move_id')
+            classifications = moves.mapped('classification_id')
+            if classifications:
+                wizard.classification_id = classifications[0].id
+            else:
+                wizard.classification_id = False
+
+    def _create_payment_vals_from_wizard(self, batch_result):
+        res = super()._create_payment_vals_from_wizard(batch_result)
+        res['classification_id'] = self.classification_id.id
+        return res
+
+    def _create_payment_vals_from_batch(self, batch_result):
+        res = super()._create_payment_vals_from_batch(batch_result)
+        res['classification_id'] = self.classification_id.id
+        return res
+
 
 
 
