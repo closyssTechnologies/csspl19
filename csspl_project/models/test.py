@@ -29,8 +29,9 @@ cursor.execute("SELECT account_id, move_line_id, amount FROM account_analytic_li
 rows = cursor.fetchall()
 dict_result = [dict(row) for row in rows]
 
-# for rec in dict_result:
-query = """insert into account_analytic_line account_id, move_line_id, amount values {}""".format((rec.get('account_id'), rec.get('move_line_id'), float(rec.get('amount'))for rec in dict_result))
+query = """insert into account_analytic_line (account_id, move_line_id, amount) values {}""".format(
+    [(rec.get('account_id'), rec.get('move_line_id'), float(rec.get('amount'))) for rec in dict_result]
+)
 models.execute_kw(db, uid, password, 'account.analytic.line', 'sql_query', 'search', query)
 # print(data)
 # Close the connection
