@@ -260,8 +260,7 @@
                 <button name="action_return_entry"
                         type="object"
                         class="btn btn-primary"
-                        string="Reverse" invisible="reversal_move_id"/>
-                <!--                        invisible="state != 'posted' or payment_state == 'reversed'"/>-->
+                        string="Reverse" invisible="state not in ('paid', 'in_process', 'posted') or reversal_move_id"/>
 
             </xpath>
 

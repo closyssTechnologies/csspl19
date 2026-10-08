@@ -376,13 +376,14 @@ class AccountPaymentInherit(models.Model):
     def onchange_payment_month_id(self):
         for rec in self:
             cutoff_date = datetime(2025, 8, 31)
-            if rec.payment_month_id and rec.payment_for == 'salary':
-                payment =  self.env['account.payment'].search([('payment_month_id', '=', rec.payment_month_id.id),
+            if rec.payment_type == 'outbound' and rec.payment_month_id and rec.payment_for == 'salary':
+                payment = self.env['account.payment'].search([('payment_month_id', '=', rec.payment_month_id.id),
                                                        ('partner_id', '=', rec.partner_id.id),
                                                        ('payment_for', '=', 'salary'),
+                                                       ('payment_type', '=', 'outbound'),
                                                        ('id', '!=', rec.id),
-                                                       ('state', '=', 'posted'),
-                                                       # ('reversal_move_id', '=', False),
+                                                       ('state', 'in', ('posted', 'in_process', 'paid')),
+                                                       ('reversal_move_id', '=', False),
                                                        ('partner_bank_id', '=', rec.partner_bank_id.id),
                                                        ('create_date', '>', cutoff_date)], limit=1)
                 if payment:
@@ -453,6 +454,15 @@ class AccountPaymentInherit(models.Model):
 
     def button_open_reversal_entry(self):
         self.ensure_one()
+        payment = self.env['account.payment'].search([('move_id', '=', self.reversal_move_id.id)], limit=1)
+        if payment:
+            return {
+                'type': 'ir.actions.act_window',
+                'name': 'Reversal Receipt',
+                'view_mode': 'form',
+                'res_model': 'account.payment',
+                'res_id': payment.id,
+            }
         return {
             'type': 'ir.actions.act_window',
             'name': 'Reversal Entry',
@@ -462,49 +472,89 @@ class AccountPaymentInherit(models.Model):
         }
 
     def action_return_entry(self):
-        if self.payment_type == 'outbound':
-            if self.move_id:
-                reversal_id = self.env['account.move.reversal'].create({'journal_id':self.journal_id.id,'date':date.today(),'move_ids':self.move_id.ids})
-                # Run reverse (IGNORE return)
-                reversal_id.refund_moves()
-                # Now get created move from wizard
-                reversed_move = reversal_id.new_move_ids
-                # Link to payment
-                self.reversal_move_id = reversed_move.id
-                # self.reversal_move_id = reversal_move_id.id
-                # return {
-                #     'name': f'Reverse of {self.name}',
-                #     'type': 'ir.actions.act_window',
-                #     'res_model': 'account.move',
-                #     'view_mode': 'form',
-                #     'domain': [('id', 'in', self.reversal_move_id)],
-                # }
-            # if self.reversed_entry_id:
-            #     raise ValidationError("A reverse payment entry has already been created")
-            # return_vend_pay = self.env['account.payment'].create(
-            #     {'payment_type': 'inbound', 'journal_id': self.journal_id.id,
-            #      'partner_id': self.partner_id.id, 'destination_account_id': self.destination_account_id.id,
-            #      'partner_type': 'supplier', 'memo': f'Return Payment against {self.name}', 'amount': self.amount,
-            #      'analytics_plan_id': self.analytics_plan_id.id,
-            #      'analytics_account_id': self.analytics_account_id.id,
-            #      'narration': self.narration,
-            #      'partner_bank_id': self.partner_bank_id.id,
-            #      'payment_month_id':self.payment_month_id.id,
-            #      'month': self.month,
-            #      'css_local_branch': self.css_local_branch,
-            #      'css_state': self.css_state,
-            #      })
-            # return_vend_pay.message_post(body=f"Return Payment Created from {self._get_html_link(self.name)}")
-            # self.message_post(body=f"Return Entry created {return_vend_pay._get_html_link(self.name)}")
-            # # return_vend_pay.action_post()
-            # self.move_id.payment_state = 'reversed'
-            # return {
-            #     'name': f'Reverse of {self.name}',
-            #     'type': 'ir.actions.act_window',
-            #     'res_model': 'account.payment',
-            #     'view_mode': 'form',
-            #     'res_id': return_vend_pay.id,
-            # }
+        self.ensure_one()
+        if self.reversal_move_id:
+            raise ValidationError(_("A reverse entry has already been created for this payment."))
+
+        # Reversing an outbound payment (Payment Entry) creates an inbound receipt (Receipt Entry).
+        # Reversing an inbound payment creates an outbound payment.
+        target_payment_type = 'inbound' if self.payment_type == 'outbound' else 'outbound'
+
+        if target_payment_type == 'inbound':
+            method_lines = self.journal_id.inbound_payment_method_line_ids
+        else:
+            method_lines = self.journal_id.outbound_payment_method_line_ids
+        payment_method_line = method_lines[:1]
+
+        vals = {
+            'payment_type': target_payment_type,
+            'partner_type': self.partner_type or ('supplier' if self.payment_type == 'outbound' else 'customer'),
+            'partner_id': self.partner_id.id if self.partner_id else False,
+            'journal_id': self.journal_id.id,
+            'amount': self.amount,
+            'date': fields.Date.context_today(self),
+            'memo': f"Return Payment against {self.name}" if self.name else "Return Payment",
+            'payment_method_line_id': payment_method_line.id if payment_method_line else False,
+        }
+
+        if hasattr(self, 'destination_account_id') and self.destination_account_id:
+            vals['destination_account_id'] = self.destination_account_id.id
+        if hasattr(self, 'analytics_plan_id') and self.analytics_plan_id:
+            vals['analytics_plan_id'] = self.analytics_plan_id.id
+        if hasattr(self, 'analytics_account_id') and self.analytics_account_id:
+            vals['analytics_account_id'] = self.analytics_account_id.id
+        if hasattr(self, 'narration') and self.narration:
+            vals['narration'] = self.narration
+        if hasattr(self, 'partner_bank_id') and self.partner_bank_id:
+            vals['partner_bank_id'] = self.partner_bank_id.id
+        if hasattr(self, 'payment_month_id') and self.payment_month_id:
+            vals['payment_month_id'] = self.payment_month_id.id
+        if hasattr(self, 'month') and self.month:
+            vals['month'] = self.month
+        if hasattr(self, 'css_local_branch') and self.css_local_branch:
+            vals['css_local_branch'] = self.css_local_branch
+        if hasattr(self, 'css_state') and self.css_state:
+            vals['css_state'] = self.css_state
+        if hasattr(self, 'payment_for_id') and self.payment_for_id:
+            vals['payment_for_id'] = self.payment_for_id.id
+        if hasattr(self, 'payment_for') and self.payment_for:
+            vals['payment_for'] = self.payment_for
+
+        return_payment = self.env['account.payment'].create(vals)
+        return_payment.action_post()
+
+        # Link reversal moves
+        if return_payment.move_id:
+            self.reversal_move_id = return_payment.move_id.id
+        if self.move_id and return_payment.move_id:
+            return_payment.reversal_move_id = self.move_id.id
+
+        # Reconcile counterpart/destination account (e.g. payable/receivable) between original payment and return receipt
+        if self.move_id and return_payment.move_id:
+            reconcile_lines = (self.move_id.line_ids + return_payment.move_id.line_ids).filtered(
+                lambda l: l.account_id == self.destination_account_id and not l.reconciled and l.account_id.reconcile
+            )
+            if len(reconcile_lines) >= 2:
+                try:
+                    reconcile_lines.reconcile()
+                except Exception:
+                    pass
+
+        # Post chatter messages
+        try:
+            return_payment.message_post(body=_("Receipt entry created from %s", self._get_html_link()))
+            self.message_post(body=_("Reversal receipt entry created: %s", return_payment._get_html_link()))
+        except Exception:
+            pass
+
+        return {
+            'name': _('Reverse of %s', self.name),
+            'type': 'ir.actions.act_window',
+            'res_model': 'account.payment',
+            'view_mode': 'form',
+            'res_id': return_payment.id,
+            'target': 'current',
+        }
 
 
 class ChangeJournalInBatch(models.TransientModel):
