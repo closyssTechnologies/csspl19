@@ -583,8 +583,6 @@ class AccountBatchPaymentInherit(models.Model):
         else:
             pass
         res = super(AccountBatchPaymentInherit, self).write(vals)
-        if 'bank_date' in vals:
-            self.set_month_in_payment()
         return res
 
     @api.onchange('payment_ids')
@@ -612,16 +610,9 @@ class AccountBatchPaymentInherit(models.Model):
 
     ##
 
-    # @api.onchange('bank_date')
+    # Changing transfer date should not change or blank out payment month
     def set_month_in_payment(self):
-        if self.payment_ids:
-            payment_to_update = self.payment_ids.filtered(lambda x: x.payment_for in ('other', False))
-            if self.bank_date:
-                payment_month = self.env['payments.month'].search(
-                    [('name', '=', self.bank_date.strftime('%b-%y'))], limit=1)
-                payment_to_update.payment_month_id = payment_month.id if payment_month else False
-            else:
-                payment_to_update.payment_month_id = False
+        pass
 
     @api.onchange('journal_id')
     def change_journal_in_payments(self):
