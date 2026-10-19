@@ -1157,7 +1157,7 @@ class InheritAccountingPayment(models.Model):
     #     tracking=True,
     #     check_company=True)
 
-    transfer_date = fields.Date(compute="set_transfer_date", store=True, string="Transfer Date")
+    transfer_date = fields.Date(compute="set_transfer_date", store=True, readonly=False, inverse="_inverse_transfer_date", string="Transfer Date")
     cheque_number = fields.Integer(string="Cheque No")
     cheque_number1 = fields.Char(string="Cheque No")
     cheque_date = fields.Date(string="Cheque Date")
@@ -1235,13 +1235,26 @@ class InheritAccountingPayment(models.Model):
         #     raise ValidationError('Payment receipt is not allowed for this contact.')
         # return res
 
+    def _inverse_transfer_date(self):
+        import calendar as cal
+        for rec in self:
+            if rec.transfer_date and hasattr(rec, 'payment_month_date_from'):
+                y, m = rec.transfer_date.year, rec.transfer_date.month
+                last_day = cal.monthrange(y, m)[1]
+                from_dt = rec.transfer_date.replace(day=1)
+                to_dt = rec.transfer_date.replace(day=last_day)
+                from_str = from_dt.strftime('%b %Y')
+                rec.payment_month_date_from = from_dt
+                rec.payment_month_date_to = to_dt
+                rec.payment_month_display = from_str
+                rec.month = from_str
+
     @api.depends('date', 'batch_payment_id', 'batch_payment_id.bank_date')
     def set_transfer_date(self):
         for rec in self:
-            rec.transfer_date = None
             if rec.batch_payment_id and rec.batch_payment_id.bank_date:
                 rec.transfer_date = rec.batch_payment_id.bank_date
-            elif not rec.batch_payment_id:
+            elif not rec.batch_payment_id and not rec.transfer_date:
                 rec.transfer_date = False
 
     # Inherited for sal payment

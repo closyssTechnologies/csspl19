@@ -181,31 +181,140 @@ class AccountPaymentInherit(models.Model):
         store=True
     )
 
-    @api.depends('payment_month_date_from', 'payment_month_date_to')
-    def _compute_payment_month_id(self):
+    @api.model
+    def _parse_month_string(self, val):
+        """Parse various month string formats into (date_from, date_to)."""
+        import calendar as cal
+        if not val or not isinstance(val, str):
+            return False, False
+        val = val.strip()
+        if not val:
+            return False, False
+
+        def parse_single(s):
+            s = s.strip().replace('-', ' ').replace('/', ' ')
+            parts = s.split()
+            if len(parts) >= 2:
+                p0, p1 = parts[0], parts[1]
+                if p1.isdigit() and len(p1) == 4:
+                    year = int(p1)
+                    m_str = p0
+                elif p0.isdigit() and len(p0) == 4:
+                    year = int(p0)
+                    m_str = p1
+                else:
+                    return None, None
+                if m_str.isdigit():
+                    month_num = int(m_str)
+                else:
+                    m_lower = m_str.lower()
+                    month_abbrs = [m.lower() for m in cal.month_abbr]
+                    month_names = [m.lower() for m in cal.month_name]
+                    if m_lower in month_abbrs:
+                        month_num = month_abbrs.index(m_lower)
+                    elif m_lower in month_names:
+                        month_num = month_names.index(m_lower)
+                    else:
+                        matches = [i for i, name in enumerate(month_names) if name and name.startswith(m_lower[:3])]
+                        month_num = matches[0] if matches else None
+                if month_num and 1 <= month_num <= 12:
+                    return year, month_num
+            return None, None
+
+        try:
+            if ' to ' in val:
+                p_from, p_to = val.split(' to ', 1)
+                fy, fm = parse_single(p_from)
+                ty, tm = parse_single(p_to)
+                if fy and fm and ty and tm:
+                    return date(fy, fm, 1), date(ty, tm, cal.monthrange(ty, tm)[1])
+            else:
+                y, m = parse_single(val)
+                if y and m:
+                    return date(y, m, 1), date(y, m, cal.monthrange(y, m)[1])
+        except Exception:
+            pass
+        return False, False
+
+    @api.onchange('transfer_date')
+    def _onchange_transfer_date(self):
         for rec in self:
-            if rec.payment_month_date_from and rec.payment_month_date_to:
+            if rec.transfer_date:
+                import calendar as cal
+                y, m = rec.transfer_date.year, rec.transfer_date.month
+                last_day = cal.monthrange(y, m)[1]
+                rec.payment_month_date_from = rec.transfer_date.replace(day=1)
+                rec.payment_month_date_to = rec.transfer_date.replace(day=last_day)
+                from_str = rec.payment_month_date_from.strftime('%b %Y')
+                rec.payment_month_display = from_str
+                rec.month = from_str
+
+    @api.depends('payment_month_date_from', 'payment_month_date_to', 'transfer_date', 'date', 'month')
+    def _compute_payment_month_id(self):
+        import calendar as cal
+        for rec in self:
+            from_dt = rec.payment_month_date_from
+            to_dt = rec.payment_month_date_to
+
+            # Auto-populate date_from/date_to if missing
+            if not from_dt or not to_dt:
+                if rec.payment_month_id:
+                    if rec.payment_month_id.date_from and rec.payment_month_id.date_to:
+                        from_dt = rec.payment_month_id.date_from
+                        to_dt = rec.payment_month_id.date_to
+                    elif rec.payment_month_id.name:
+                        parsed_from, parsed_to = self._parse_month_string(rec.payment_month_id.name)
+                        if parsed_from and parsed_to:
+                            from_dt, to_dt = parsed_from, parsed_to
+                    if from_dt and to_dt:
+                        rec.payment_month_date_from = from_dt
+                        rec.payment_month_date_to = to_dt
+                elif rec.transfer_date:
+                    y, m = rec.transfer_date.year, rec.transfer_date.month
+                    last_day = cal.monthrange(y, m)[1]
+                    from_dt = rec.transfer_date.replace(day=1)
+                    to_dt = rec.transfer_date.replace(day=last_day)
+                    rec.payment_month_date_from = from_dt
+                    rec.payment_month_date_to = to_dt
+                elif rec.month:
+                    parsed_from, parsed_to = self._parse_month_string(rec.month)
+                    if parsed_from and parsed_to:
+                        from_dt, to_dt = parsed_from, parsed_to
+                        rec.payment_month_date_from = from_dt
+                        rec.payment_month_date_to = to_dt
+                elif rec.date:
+                    y, m = rec.date.year, rec.date.month
+                    last_day = cal.monthrange(y, m)[1]
+                    from_dt = rec.date.replace(day=1)
+                    to_dt = rec.date.replace(day=last_day)
+                    rec.payment_month_date_from = from_dt
+                    rec.payment_month_date_to = to_dt
+
+            if from_dt and to_dt:
                 month_rec = self.env['payments.month'].search([
-                    ('date_from', '=', rec.payment_month_date_from),
-                    ('date_to', '=', rec.payment_month_date_to)
+                    ('date_from', '=', from_dt),
+                    ('date_to', '=', to_dt)
                 ], limit=1)
                 if not month_rec:
-                    from_str = rec.payment_month_date_from.strftime('%b %Y')
-                    to_str = rec.payment_month_date_to.strftime('%b %Y')
+                    from_str = from_dt.strftime('%b %Y')
+                    to_str = to_dt.strftime('%b %Y')
                     if from_str == to_str:
                         name = from_str
                     else:
                         name = f"{from_str} to {to_str}"
                     month_rec = self.env['payments.month'].create({
-                        'date_from': rec.payment_month_date_from,
-                        'date_to': rec.payment_month_date_to,
+                        'date_from': from_dt,
+                        'date_to': to_dt,
                         'name': name
                     })
                 rec.payment_month_id = month_rec.id
+                if not rec.month:
+                    rec.month = month_rec.name
             else:
-                rec.payment_month_id = False
+                if not rec.payment_month_id:
+                    rec.payment_month_id = False
 
-    @api.depends('payment_month_date_from', 'payment_month_date_to')
+    @api.depends('payment_month_date_from', 'payment_month_date_to', 'payment_month_id', 'transfer_date', 'month')
     def _compute_payment_month_display(self):
         for rec in self:
             if rec.payment_month_date_from and rec.payment_month_date_to:
@@ -215,41 +324,29 @@ class AccountPaymentInherit(models.Model):
                     rec.payment_month_display = from_str
                 else:
                     rec.payment_month_display = f"{from_str} to {to_str}"
+            elif rec.payment_month_id:
+                rec.payment_month_display = rec.payment_month_id.name
+            elif rec.month:
+                rec.payment_month_display = rec.month
+            elif rec.transfer_date:
+                rec.payment_month_display = rec.transfer_date.strftime('%b %Y')
             else:
                 rec.payment_month_display = ''
 
     def _inverse_payment_month_display(self):
-        from datetime import date
-        import calendar as cal
         for rec in self:
             val = (rec.payment_month_display or '').strip()
             if not val:
-                rec.payment_month_date_from = False
-                rec.payment_month_date_to = False
                 continue
-            try:
-                if ' to ' in val:
-                    parts = val.split(' to ')
-                    from_dt = fields.Date.from_string(
-                        date(int(parts[0].strip().split()[1]),
-                             list(__import__('calendar').month_abbr).index(parts[0].strip().split()[0].capitalize()),
-                             1).isoformat()
-                    )
-                    to_month_parts = parts[1].strip().split()
-                    to_year = int(to_month_parts[1])
-                    to_month = list(__import__('calendar').month_abbr).index(to_month_parts[0].capitalize())
-                    last_day = cal.monthrange(to_year, to_month)[1]
-                    to_dt = date(to_year, to_month, last_day)
-                else:
-                    parts = val.split()
-                    from_year = int(parts[1])
-                    from_month = list(__import__('calendar').month_abbr).index(parts[0].capitalize())
-                    from_dt = date(from_year, from_month, 1)
-                    last_day = cal.monthrange(from_year, from_month)[1]
-                    to_dt = date(from_year, from_month, last_day)
+            from_dt, to_dt = self._parse_month_string(val)
+            if from_dt and to_dt:
                 rec.payment_month_date_from = from_dt
                 rec.payment_month_date_to = to_dt
-            except Exception:
+                from_str = from_dt.strftime('%b %Y')
+                to_str = to_dt.strftime('%b %Y')
+                name = from_str if from_str == to_str else f"{from_str} to {to_str}"
+                rec.month = name
+            else:
                 raise ValidationError(_(
                     "Invalid format for Payments Month. Use 'Mon YYYY' (e.g. Feb 2026) "
                     "or 'Mon YYYY to Mon YYYY' (e.g. Feb 2026 to Mar 2026)."
@@ -486,6 +583,98 @@ class AccountPaymentInherit(models.Model):
             method_lines = self.journal_id.outbound_payment_method_line_ids
         payment_method_line = method_lines[:1]
 
+        # Determine payment month and transfer date from original payment
+        pm_id = self.payment_month_id.id if self.payment_month_id else False
+        pm_date_from = self.payment_month_date_from or (self.payment_month_id.date_from if self.payment_month_id else False)
+        pm_date_to = self.payment_month_date_to or (self.payment_month_id.date_to if self.payment_month_id else False)
+        pm_display = self.payment_month_display or (self.payment_month_id.name if self.payment_month_id else (self.month or False))
+        month_str = self.month or (self.payment_month_id.name if self.payment_month_id else False)
+        transfer_dt = self.transfer_date or False
+
+        if not pm_id and (pm_date_from and pm_date_to):
+            month_rec = self.env['payments.month'].search([
+                ('date_from', '=', pm_date_from),
+                ('date_to', '=', pm_date_to)
+            ], limit=1)
+            if not month_rec:
+                from_str = pm_date_from.strftime('%b %Y')
+                to_str = pm_date_to.strftime('%b %Y')
+                name = from_str if from_str == to_str else f"{from_str} to {to_str}"
+                month_rec = self.env['payments.month'].create({
+                    'date_from': pm_date_from,
+                    'date_to': pm_date_to,
+                    'name': name
+                })
+            pm_id = month_rec.id
+
+        if not pm_id and month_str:
+            parsed_from, parsed_to = self._parse_month_string(month_str)
+            if parsed_from and parsed_to:
+                month_rec = self.env['payments.month'].search([
+                    ('date_from', '=', parsed_from),
+                    ('date_to', '=', parsed_to)
+                ], limit=1)
+                if not month_rec:
+                    from_str = parsed_from.strftime('%b %Y')
+                    to_str = parsed_to.strftime('%b %Y')
+                    name = from_str if from_str == to_str else f"{from_str} to {to_str}"
+                    month_rec = self.env['payments.month'].create({
+                        'date_from': parsed_from,
+                        'date_to': parsed_to,
+                        'name': name
+                    })
+                pm_id = month_rec.id
+                pm_date_from = parsed_from
+                pm_date_to = parsed_to
+                pm_display = month_rec.name
+
+        if not pm_id and self.move_id and self.move_id.payment_month_id:
+            pm_id = self.move_id.payment_month_id.id
+            pm_date_from = self.move_id.payment_month_id.date_from
+            pm_date_to = self.move_id.payment_month_id.date_to
+            pm_display = self.move_id.payment_month_id.name
+            month_str = self.move_id.payment_month_id.name
+
+        if not pm_id and transfer_dt:
+            import calendar as cal
+            y, m = transfer_dt.year, transfer_dt.month
+            last_day = cal.monthrange(y, m)[1]
+            pm_date_from = transfer_dt.replace(day=1)
+            pm_date_to = transfer_dt.replace(day=last_day)
+            pm_display = pm_date_from.strftime('%b %Y')
+            month_str = pm_display
+            month_rec = self.env['payments.month'].search([
+                ('date_from', '=', pm_date_from),
+                ('date_to', '=', pm_date_to)
+            ], limit=1)
+            if not month_rec:
+                month_rec = self.env['payments.month'].create({
+                    'date_from': pm_date_from,
+                    'date_to': pm_date_to,
+                    'name': pm_display
+                })
+            pm_id = month_rec.id
+
+        if not pm_id and self.date:
+            import calendar as cal
+            y, m = self.date.year, self.date.month
+            last_day = cal.monthrange(y, m)[1]
+            pm_date_from = self.date.replace(day=1)
+            pm_date_to = self.date.replace(day=last_day)
+            pm_display = pm_date_from.strftime('%b %Y')
+            month_str = pm_display
+            month_rec = self.env['payments.month'].search([
+                ('date_from', '=', pm_date_from),
+                ('date_to', '=', pm_date_to)
+            ], limit=1)
+            if not month_rec:
+                month_rec = self.env['payments.month'].create({
+                    'date_from': pm_date_from,
+                    'date_to': pm_date_to,
+                    'name': pm_display
+                })
+            pm_id = month_rec.id
+
         vals = {
             'payment_type': target_payment_type,
             'partner_type': self.partner_type or ('supplier' if self.payment_type == 'outbound' else 'customer'),
@@ -493,8 +682,14 @@ class AccountPaymentInherit(models.Model):
             'journal_id': self.journal_id.id,
             'amount': self.amount,
             'date': fields.Date.context_today(self),
-            'memo': f"Return Payment against {self.name}" if self.name else "Return Payment",
+            'memo': f"Return Receipt against {self.name}" if target_payment_type == 'inbound' else f"Return Payment against {self.name}",
             'payment_method_line_id': payment_method_line.id if payment_method_line else False,
+            'payment_month_id': pm_id,
+            'payment_month_date_from': pm_date_from,
+            'payment_month_date_to': pm_date_to,
+            'payment_month_display': pm_display,
+            'month': month_str,
+            'transfer_date': transfer_dt,
         }
 
         if hasattr(self, 'destination_account_id') and self.destination_account_id:
@@ -507,10 +702,6 @@ class AccountPaymentInherit(models.Model):
             vals['narration'] = self.narration
         if hasattr(self, 'partner_bank_id') and self.partner_bank_id:
             vals['partner_bank_id'] = self.partner_bank_id.id
-        if hasattr(self, 'payment_month_id') and self.payment_month_id:
-            vals['payment_month_id'] = self.payment_month_id.id
-        if hasattr(self, 'month') and self.month:
-            vals['month'] = self.month
         if hasattr(self, 'css_local_branch') and self.css_local_branch:
             vals['css_local_branch'] = self.css_local_branch
         if hasattr(self, 'css_state') and self.css_state:
@@ -521,13 +712,29 @@ class AccountPaymentInherit(models.Model):
             vals['payment_for'] = self.payment_for
 
         return_payment = self.env['account.payment'].create(vals)
+        # Explicitly ensure payment month fields are preserved on return_payment
+        return_payment.write({
+            'payment_month_id': pm_id,
+            'payment_month_date_from': pm_date_from,
+            'payment_month_date_to': pm_date_to,
+            'payment_month_display': pm_display,
+            'month': month_str,
+            'transfer_date': transfer_dt,
+        })
         return_payment.action_post()
 
         # Link reversal moves
         if return_payment.move_id:
             self.reversal_move_id = return_payment.move_id.id
-        if self.move_id and return_payment.move_id:
-            return_payment.reversal_move_id = self.move_id.id
+            if pm_id:
+                return_payment.move_id.payment_month_id = pm_id
+                return_payment.move_id.line_ids.write({'payment_month_id': pm_id})
+        if self.move_id:
+            if return_payment.move_id:
+                return_payment.reversal_move_id = self.move_id.id
+            if pm_id:
+                self.move_id.payment_month_id = pm_id
+                self.move_id.line_ids.write({'payment_month_id': pm_id})
 
         # Reconcile counterpart/destination account (e.g. payable/receivable) between original payment and return receipt
         if self.move_id and return_payment.move_id:
@@ -548,12 +755,16 @@ class AccountPaymentInherit(models.Model):
             pass
 
         return {
-            'name': _('Reverse of %s', self.name),
+            'name': _('Reversal Receipt of %s', self.name) if target_payment_type == 'inbound' else _('Reverse of %s', self.name),
             'type': 'ir.actions.act_window',
             'res_model': 'account.payment',
             'view_mode': 'form',
             'res_id': return_payment.id,
             'target': 'current',
+            'context': {
+                'default_payment_type': target_payment_type,
+                'default_partner_type': self.partner_type,
+            },
         }
 
 
@@ -616,12 +827,88 @@ class BatchPaymentInherit(models.Model):
     prioritys = fields.Boolean()
     prioritys_1 = fields.Boolean()
 
+    @api.onchange('bank_date')
+    def _onchange_bank_date(self):
+        for batch in self:
+            if batch.bank_date:
+                import calendar as cal
+                y, m = batch.bank_date.year, batch.bank_date.month
+                last_day = cal.monthrange(y, m)[1]
+                from_dt = batch.bank_date.replace(day=1)
+                to_dt = batch.bank_date.replace(day=last_day)
+                from_str = from_dt.strftime('%b %Y')
+                for payment in batch.payment_ids:
+                    payment.transfer_date = batch.bank_date
+                    payment.payment_month_date_from = from_dt
+                    payment.payment_month_date_to = to_dt
+                    payment.payment_month_display = from_str
+                    payment.month = from_str
+
+    def write(self, vals):
+        res = super(BatchPaymentInherit, self).write(vals)
+        if 'bank_date' in vals and vals['bank_date']:
+            import calendar as cal
+            bank_date = fields.Date.to_date(vals['bank_date'])
+            y, m = bank_date.year, bank_date.month
+            last_day = cal.monthrange(y, m)[1]
+            from_dt = bank_date.replace(day=1)
+            to_dt = bank_date.replace(day=last_day)
+            from_str = from_dt.strftime('%b %Y')
+            month_rec = self.env['payments.month'].search([
+                ('date_from', '=', from_dt),
+                ('date_to', '=', to_dt)
+            ], limit=1)
+            if not month_rec:
+                month_rec = self.env['payments.month'].create({
+                    'date_from': from_dt,
+                    'date_to': to_dt,
+                    'name': from_str
+                })
+            for batch in self:
+                for payment in batch.payment_ids:
+                    payment.write({
+                        'transfer_date': bank_date,
+                        'payment_month_date_from': from_dt,
+                        'payment_month_date_to': to_dt,
+                        'payment_month_id': month_rec.id,
+                        'payment_month_display': from_str,
+                        'month': from_str,
+                    })
+                    if payment.move_id:
+                        payment.move_id.payment_month_id = month_rec.id
+                        payment.move_id.line_ids.write({'payment_month_id': month_rec.id})
+        return res
+
     def validate_batch_button(self):
         res = super(BatchPaymentInherit, self).validate_batch_button()
         for payment in self.payment_ids:
             payment.date = self.bank_date
-            # for line in payment.payment_ids:
-            #     line.state = 'posted'
+            if self.bank_date:
+                import calendar as cal
+                y, m = self.bank_date.year, self.bank_date.month
+                last_day = cal.monthrange(y, m)[1]
+                from_dt = self.bank_date.replace(day=1)
+                to_dt = self.bank_date.replace(day=last_day)
+                from_str = from_dt.strftime('%b %Y')
+                month_rec = self.env['payments.month'].search([
+                    ('date_from', '=', from_dt),
+                    ('date_to', '=', to_dt)
+                ], limit=1)
+                if not month_rec:
+                    month_rec = self.env['payments.month'].create({
+                        'date_from': from_dt,
+                        'date_to': to_dt,
+                        'name': from_str
+                    })
+                payment.write({
+                    'transfer_date': self.bank_date,
+                    'payment_month_date_from': from_dt,
+                    'payment_month_date_to': to_dt,
+                    'payment_month_id': month_rec.id,
+                    'payment_month_display': from_str,
+                    'month': from_str,
+                })
+            payment._update_payment_month_in_journal_entries()
         return res
 
     def button_change_journal(self):
@@ -724,6 +1011,60 @@ class AccountMoveInherit(models.Model):
                 move.classification_id = line[0].classification_id.id
             elif not move.classification_id:
                 move.classification_id = False
+
+    def _reverse_moves(self, default_values_list=None, cancel=False):
+        if not default_values_list:
+            default_values_list = [{} for _ in self]
+        for move, default_values in zip(self, default_values_list):
+            pm = move.payment_month_id or (move.origin_payment_id.payment_month_id if hasattr(move, 'origin_payment_id') and move.origin_payment_id else False)
+            if not pm:
+                pay = self.env['account.payment'].search([('move_id', '=', move.id)], limit=1)
+                if pay and pay.payment_month_id:
+                    pm = pay.payment_month_id
+            if pm:
+                default_values['payment_month_id'] = pm.id
+
+        reverse_moves = super()._reverse_moves(default_values_list=default_values_list, cancel=cancel)
+
+        for orig_move, rev_move, default_values in zip(self, reverse_moves, default_values_list):
+            pm_id = orig_move.payment_month_id.id if orig_move.payment_month_id else default_values.get('payment_month_id')
+            if not pm_id and hasattr(orig_move, 'origin_payment_id') and orig_move.origin_payment_id and orig_move.origin_payment_id.payment_month_id:
+                pm_id = orig_move.origin_payment_id.payment_month_id.id
+            if not pm_id:
+                pay = self.env['account.payment'].search([('move_id', '=', orig_move.id)], limit=1)
+                if pay and pay.payment_month_id:
+                    pm_id = pay.payment_month_id.id
+
+            if pm_id:
+                rev_move.payment_month_id = pm_id
+                rev_move.line_ids.write({'payment_month_id': pm_id})
+                month_rec = self.env['payments.month'].browse(pm_id)
+                rev_payments = (rev_move.origin_payment_id if hasattr(rev_move, 'origin_payment_id') else self.env['account.payment']) | self.env['account.payment'].search([('move_id', '=', rev_move.id)])
+                for p in rev_payments:
+                    p.write({
+                        'payment_month_id': pm_id,
+                        'payment_month_date_from': month_rec.date_from,
+                        'payment_month_date_to': month_rec.date_to,
+                        'payment_month_display': month_rec.name,
+                        'month': month_rec.name,
+                    })
+
+        return reverse_moves
+
+    def action_post(self):
+        for move in self:
+            if not move.payment_month_id and move.reversed_entry_id and move.reversed_entry_id.payment_month_id:
+                move.payment_month_id = move.reversed_entry_id.payment_month_id.id
+            if move.payment_month_id:
+                move.line_ids.filtered(lambda l: not l.payment_month_id).write({
+                    'payment_month_id': move.payment_month_id.id
+                })
+        res = super().action_post()
+        for move in self:
+            if move.payment_month_id:
+                move.line_ids.write({'payment_month_id': move.payment_month_id.id})
+        return res
+
 
 
 

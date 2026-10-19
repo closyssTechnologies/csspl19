@@ -212,6 +212,8 @@ class ImportPaymentWizard(models.TransientModel):
                     'css_local_branch': css_local_branch if css_local_branch else '',
                     'css_state': css_state if css_state else '',
                     'month': month if month else '',
+                    'payment_month_date_from': self.env['account.payment']._parse_month_string(str(month))[0] if month and hasattr(self.env['account.payment'], '_parse_month_string') else False,
+                    'payment_month_date_to': self.env['account.payment']._parse_month_string(str(month))[1] if month and hasattr(self.env['account.payment'], '_parse_month_string') else False,
                     'narration': narration if narration else '',
                     'batch_payment_id': new_record2.id,
                     'source_doc': new_record2.name,
