@@ -543,8 +543,8 @@ class AccountBatchPaymentInherit(models.Model):
         ('approved', 'Approved'),
         ('reject', 'Rejected'),
         ('management_approved', 'Management Approved'),
-        ('bank_upload', 'Bank Upload'),
-        ('pending_transfer', 'Pending For Transfer'),
+        # ('bank_upload', 'Bank Upload'),
+        ('pending_transfer', 'Pending Fo    r Transfer'),
         ('sent', 'Transferred'),
         ('reconciled', 'Reconciled'),
     ], store=True, compute='_compute_state', default='draft', tracking=True)

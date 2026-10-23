@@ -1159,8 +1159,11 @@ class AccountTaxInherit(models.Model):
 class AccountAnalyticInherit(models.Model):
     _inherit = 'account.analytic.account'
 
+    analytic_referenceee = fields.Char(
+        string="Analytic Reference",
+    )
+
     count = fields.Integer(string='Count')
-    # count = fields.Integer(string='Count', compute="_compute_count")
 
     def name_get(self):
         result = []

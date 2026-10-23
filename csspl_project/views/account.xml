@@ -362,6 +362,9 @@
         <field name="model">account.analytic.account</field>
         <field name="inherit_id" ref="analytic.view_account_analytic_account_form"/>
         <field name="arch" type="xml">
+            <xpath expr="//field[@name='code']" position="after">
+            <field name="analytic_referenceee"/>
+        </xpath>
             <xpath expr="//div[@name='button_box']" position="inside">
                 <button name="action_view_payment" type="object" class="oe_stat_button" string="payments"
                         icon="fa-money" invisible="count == 0">
