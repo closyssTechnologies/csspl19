@@ -470,22 +470,22 @@ class AccountPaymentInherit(models.Model):
 
 
     # Before posting the Payment adding the month is mandate as it will help us to determine salary
-    def onchange_payment_month_id(self):
-        for rec in self:
-            cutoff_date = datetime(2025, 8, 31)
-            if rec.payment_type == 'outbound' and rec.payment_month_id and rec.payment_for == 'salary':
-                payment = self.env['account.payment'].search([('payment_month_id', '=', rec.payment_month_id.id),
-                                                       ('partner_id', '=', rec.partner_id.id),
-                                                       ('payment_for', '=', 'salary'),
-                                                       ('payment_type', '=', 'outbound'),
-                                                       ('id', '!=', rec.id),
-                                                       ('state', 'in', ('posted', 'in_process', 'paid')),
-                                                       ('reversal_move_id', '=', False),
-                                                       ('partner_bank_id', '=', rec.partner_bank_id.id),
-                                                       ('create_date', '>', cutoff_date)], limit=1)
-                if payment:
-                    batch_numbers = ", ".join(payment.filtered(lambda p: p.source_doc).mapped('source_doc'))
-                    raise ValidationError(f'Already made payment for {rec.partner_id.name} in {rec.payment_month_id.name} Batch Number {batch_numbers}')
+    # def onchange_payment_month_id(self):
+    #     for rec in self:
+    #         cutoff_date = datetime(2025, 8, 31)
+    #         if rec.payment_type == 'outbound' and rec.payment_month_id and rec.payment_for == 'salary':
+    #             payment = self.env['account.payment'].search([('payment_month_id', '=', rec.payment_month_id.id),
+    #                                                    ('partner_id', '=', rec.partner_id.id),
+    #                                                    ('payment_for', '=', 'salary'),
+    #                                                    ('payment_type', '=', 'outbound'),
+    #                                                    ('id', '!=', rec.id),
+    #                                                    ('state', 'in', ('posted', 'in_process', 'paid')),
+    #                                                    ('reversal_move_id', '=', False),
+    #                                                    ('partner_bank_id', '=', rec.partner_bank_id.id),
+    #                                                    ('create_date', '>', cutoff_date)], limit=1)
+    #             if payment:
+    #                 batch_numbers = ", ".join(payment.filtered(lambda p: p.source_doc).mapped('source_doc'))
+    #                 raise ValidationError(f'Already made payment for {rec.partner_id.name} in {rec.payment_month_id.name} Batch Number {batch_numbers}')
 
     # if value is not set in approval request then user can edit and if approval request is set then validation
     # Error will be raised
