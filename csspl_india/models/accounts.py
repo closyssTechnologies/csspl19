@@ -484,6 +484,7 @@ class ExcelMergeWizard(models.TransientModel):
                     pay_method = "N"
 
                 partner_name = re.sub(r"[-\d]+", "", line.partner_id.name)
+                crn_no = line.batch_payment_id.ref_bank_no or batch_id.ref_bank_no or line.payment_reference or line.name or batch_id.name or ''
 
                 sheet.write(row, col, line.batch_payment_id.journal_id.bank_account_id.acc_number)
                 sheet.write(row, col + 1, line.partner_bank_id.acc_number or ' ')
@@ -500,7 +501,7 @@ class ExcelMergeWizard(models.TransientModel):
                 sheet.write(row, col + 12, ' ')
                 sheet.write(row, col + 13, ' ')
                 sheet.write(row, col + 14, ' ')
-                sheet.write(row, col + 15, ' ')
+                sheet.write(row, col + 15, str(crn_no).strip() if crn_no else ' ')
                 sheet.write(row, col + 16, ' ')
                 sheet.write(row, col + 17, ' ')
                 sheet.write(row, col + 18, ' ')
@@ -1438,6 +1439,15 @@ class CustomExcel(models.TransientModel):
         total_tax = 0.0
         pay_method = ""
 
+        batch_seq = '1001'
+        if batch_id.ref_bank_no:
+            clean_ref = str(batch_id.ref_bank_no).strip()
+            if len(clean_ref) == 4 and clean_ref.isdigit():
+                batch_seq = clean_ref
+            elif len(clean_ref) >= 12 and clean_ref.isdigit():
+                batch_seq = clean_ref[8:12]
+
+        idx = 1
         for line in batch_id.payment_ids:
             if not line.partner_bank_id.bank_id.bic:
                 raise ValidationError(f'Bank/IFSC not set in partner {line.partner_id.name}')
@@ -1446,15 +1456,17 @@ class CustomExcel(models.TransientModel):
             if line.batch_payment_id.journal_id.bank_id.bic[0:4] == line.partner_bank_id.bank_id.bic[0:4]:
                 pay_method = "I"
             elif line.amount > 200000:
-                # current_time = datetime.datetime.now(pytz.timezone('Asia/Kolkata')).time()
                 current_time = fields.Datetime.context_timestamp(self, fields.Datetime.now()).time()
                 if current_time >= time(15, 0):
-                # if current_time >= datetime.time(15, 0):
                     pay_method = "N"
                 else:
                     pay_method = "R"
             else:
                 pay_method = "N"
+
+            pay_date = line.date or batch_id.bank_date or batch_id.date or fields.Date.today()
+            date_str = pay_date.strftime("%d%m%Y")
+            crn_no = f"{date_str}{batch_seq}{idx:02d}"
 
             partner_name = re.sub(r"[-\d]+", "", line.partner_id.name)
 
@@ -1463,7 +1475,7 @@ class CustomExcel(models.TransientModel):
             sheet.write(row, col + 2, partner_name or ' ')
             sheet.write(row, col + 3, int(line.amount) or ' ')
             sheet.write(row, col + 4, str(pay_method))
-            sheet.write(row, col + 5, line.date.strftime("%d-%b-%Y").upper())
+            sheet.write(row, col + 5, pay_date.strftime("%d-%b-%Y").upper())
             sheet.write(row, col + 6, line.partner_bank_id.bank_id.bic or ' ')
             sheet.write(row, col + 7, ' ')
             sheet.write(row, col + 8, ' ')
@@ -1473,14 +1485,15 @@ class CustomExcel(models.TransientModel):
             sheet.write(row, col + 12, ' ')
             sheet.write(row, col + 13, ' ')
             sheet.write(row, col + 14, ' ')
-            sheet.write(row, col + 15, ' ')
+            sheet.write(row, col + 15, crn_no)
             sheet.write(row, col + 16, ' ')
             sheet.write(row, col + 17, ' ')
             sheet.write(row, col + 18, ' ')
             sheet.write(row, col + 19, ' ')
-            sheet.write(row, col + 20, line.narration)
+            sheet.write(row, col + 20, line.narration or '')
 
             row += 1
+            idx += 1
 
         # Save the workbook to a file or return it as a response to a web request.
         fp = BytesIO()
@@ -1516,7 +1529,16 @@ class CustomExcel(models.TransientModel):
         col = 0
         # # For Detailed Tds Report and Summary
 
+        batch_seq = '1001'
+        if batch_id.ref_bank_no:
+            clean_ref = str(batch_id.ref_bank_no).strip()
+            if len(clean_ref) == 4 and clean_ref.isdigit():
+                batch_seq = clean_ref
+            elif len(clean_ref) >= 12 and clean_ref.isdigit():
+                batch_seq = clean_ref[8:12]
+
         pay_method = ""
+        idx = 1
         for line in batch_id.payment_ids:
             if not line.partner_bank_id.bank_id.bic:
                 raise ValidationError(f'Bank/IFSC not set in partner {line.partner_id.name}')
@@ -1525,9 +1547,7 @@ class CustomExcel(models.TransientModel):
             if line.batch_payment_id.journal_id.bank_id.bic[0:4] == line.partner_bank_id.bank_id.bic[0:4]:
                 pay_method = "I"
             elif line.amount > 200000:
-                # current_time = datetime.datetime.now(pytz.timezone('Asia/Kolkata')).time()
                 current_time = fields.Datetime.context_timestamp(self, fields.Datetime.now()).time()
-                # if current_time >= datetime.time(15, 0):
                 if current_time >= time(15, 0):
                     pay_method = "N"
                 else:
@@ -1535,20 +1555,25 @@ class CustomExcel(models.TransientModel):
             else:
                 pay_method = "N"
 
+            pay_date = line.date or batch_id.bank_date or batch_id.date or fields.Date.today()
+            date_str = pay_date.strftime("%d%m%Y")
+            crn_no = f"{date_str}{batch_seq}{idx:02d}"
+
             name = re.sub(r"[-\d]+", "", line.partner_id.name).rstrip()
             sheet.write(row, col, str(pay_method))
             sheet.write(row, col + 1, int(line.amount) or ' ')
-            sheet.write(row, col + 2, fields.Date.today(), title_date_format)
+            sheet.write(row, col + 2, pay_date, title_date_format)
             sheet.write(row, col + 3, name)
             sheet.write(row, col + 4, line.partner_bank_id.acc_number or ' ')
             sheet.write(row, col + 5, '')
-            sheet.write(row, col + 6, line.narration)
-            sheet.write(row, col + 7, line.batch_payment_id.journal_id.bank_account_id.acc_number)
-            sheet.write(row, col + 8, '')
-            sheet.write(row, col + 9, line.partner_bank_id.bank_id.bic)
+            sheet.write(row, col + 6, line.narration or '')
+            sheet.write(row, col + 7, line.batch_payment_id.journal_id.bank_account_id.acc_number or '')
+            sheet.write(row, col + 8, crn_no)
+            sheet.write(row, col + 9, line.partner_bank_id.bank_id.bic or '')
             sheet.write(row, col + 10, '11')
 
             row += 1
+            idx += 1
         # Save the workbook to a file or return it as a response to a web request.
         fp = BytesIO()
         workbook.save(fp)

@@ -56,7 +56,16 @@ class CustomBankFormat(models.AbstractModel):
         col = 0
         # # For Detailed Tds Report and Summary
 
+        batch_seq = '1001'
+        if lines.ref_bank_no:
+            clean_ref = str(lines.ref_bank_no).strip()
+            if len(clean_ref) == 4 and clean_ref.isdigit():
+                batch_seq = clean_ref
+            elif len(clean_ref) >= 12 and clean_ref.isdigit():
+                batch_seq = clean_ref[8:12]
+
         pay_method = ""
+        idx = 1
         for line in lines.payment_ids:
                 if not line.partner_bank_id.bank_id.bic:
                     raise ValidationError('Bank not set in partner')
@@ -69,16 +78,21 @@ class CustomBankFormat(models.AbstractModel):
                 else:
                     pay_method = "N"
 
+                pay_date = line.date or lines.bank_date or lines.date or fields.Date.today()
+                date_str = pay_date.strftime("%d%m%Y")
+                crn_no = f"{date_str}{batch_seq}{idx:02d}"
+
                 sheet.write(row, col, str(pay_method))
                 sheet.write(row, col + 1, str(line.amount) or ' ')
-                sheet.write(row, col + 2, line.date, title_date_format)
+                sheet.write(row, col + 2, pay_date, title_date_format)
                 sheet.write(row, col + 3, re.sub(r"[-\d]+", "", line.partner_id.name))
                 sheet.write(row, col + 4, line.partner_bank_id.acc_number or ' ')
                 sheet.write(row, col + 5, '')
-                sheet.write(row, col + 6, line.narration)
-                sheet.write(row, col + 7, line.batch_payment_id.journal_id.bank_account_id.acc_number)
-                sheet.write(row, col + 8, '')
-                sheet.write(row, col + 9, line.partner_bank_id.bank_id.bic)
+                sheet.write(row, col + 6, line.narration or '')
+                sheet.write(row, col + 7, line.batch_payment_id.journal_id.bank_account_id.acc_number or '')
+                sheet.write(row, col + 8, crn_no)
+                sheet.write(row, col + 9, line.partner_bank_id.bank_id.bic or '')
                 sheet.write(row, col + 10, '11')
 
                 row = row + 1
+                idx += 1
