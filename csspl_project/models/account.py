@@ -543,7 +543,7 @@ class AccountPaymentInherit(models.Model):
                 })
 
     def action_post(self):
-        self.onchange_payment_month_id()
+        # self.onchange_payment_month_id()
         res = super().action_post()
         self._update_payment_month_in_journal_entries()
         return res
