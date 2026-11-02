@@ -1236,18 +1236,8 @@ class InheritAccountingPayment(models.Model):
         # return res
 
     def _inverse_transfer_date(self):
-        import calendar as cal
-        for rec in self:
-            if rec.transfer_date and hasattr(rec, 'payment_month_date_from'):
-                y, m = rec.transfer_date.year, rec.transfer_date.month
-                last_day = cal.monthrange(y, m)[1]
-                from_dt = rec.transfer_date.replace(day=1)
-                to_dt = rec.transfer_date.replace(day=last_day)
-                from_str = from_dt.strftime('%b %Y')
-                rec.payment_month_date_from = from_dt
-                rec.payment_month_date_to = to_dt
-                rec.payment_month_display = from_str
-                rec.month = from_str
+        # Transfer date is independent and should not overwrite payment/service month
+        pass
 
     @api.depends('date', 'batch_payment_id', 'batch_payment_id.bank_date')
     def set_transfer_date(self):

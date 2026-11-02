@@ -238,18 +238,10 @@ class AccountPaymentInherit(models.Model):
 
     @api.onchange('transfer_date')
     def _onchange_transfer_date(self):
-        for rec in self:
-            if rec.transfer_date:
-                import calendar as cal
-                y, m = rec.transfer_date.year, rec.transfer_date.month
-                last_day = cal.monthrange(y, m)[1]
-                rec.payment_month_date_from = rec.transfer_date.replace(day=1)
-                rec.payment_month_date_to = rec.transfer_date.replace(day=last_day)
-                from_str = rec.payment_month_date_from.strftime('%b %Y')
-                rec.payment_month_display = from_str
-                rec.month = from_str
+        # Transfer date is independent and should not overwrite payment/service month
+        pass
 
-    @api.depends('payment_month_date_from', 'payment_month_date_to', 'transfer_date', 'date', 'month')
+    @api.depends('payment_month_date_from', 'payment_month_date_to', 'date', 'month')
     def _compute_payment_month_id(self):
         import calendar as cal
         for rec in self:
@@ -269,13 +261,6 @@ class AccountPaymentInherit(models.Model):
                     if from_dt and to_dt:
                         rec.payment_month_date_from = from_dt
                         rec.payment_month_date_to = to_dt
-                elif rec.transfer_date:
-                    y, m = rec.transfer_date.year, rec.transfer_date.month
-                    last_day = cal.monthrange(y, m)[1]
-                    from_dt = rec.transfer_date.replace(day=1)
-                    to_dt = rec.transfer_date.replace(day=last_day)
-                    rec.payment_month_date_from = from_dt
-                    rec.payment_month_date_to = to_dt
                 elif rec.month:
                     parsed_from, parsed_to = self._parse_month_string(rec.month)
                     if parsed_from and parsed_to:
@@ -314,7 +299,7 @@ class AccountPaymentInherit(models.Model):
                 if not rec.payment_month_id:
                     rec.payment_month_id = False
 
-    @api.depends('payment_month_date_from', 'payment_month_date_to', 'payment_month_id', 'transfer_date', 'month')
+    @api.depends('payment_month_date_from', 'payment_month_date_to', 'payment_month_id', 'month')
     def _compute_payment_month_display(self):
         for rec in self:
             if rec.payment_month_date_from and rec.payment_month_date_to:
@@ -328,8 +313,6 @@ class AccountPaymentInherit(models.Model):
                 rec.payment_month_display = rec.payment_month_id.name
             elif rec.month:
                 rec.payment_month_display = rec.month
-            elif rec.transfer_date:
-                rec.payment_month_display = rec.transfer_date.strftime('%b %Y')
             else:
                 rec.payment_month_display = ''
 
@@ -831,83 +814,25 @@ class BatchPaymentInherit(models.Model):
     def _onchange_bank_date(self):
         for batch in self:
             if batch.bank_date:
-                import calendar as cal
-                y, m = batch.bank_date.year, batch.bank_date.month
-                last_day = cal.monthrange(y, m)[1]
-                from_dt = batch.bank_date.replace(day=1)
-                to_dt = batch.bank_date.replace(day=last_day)
-                from_str = from_dt.strftime('%b %Y')
                 for payment in batch.payment_ids:
                     payment.transfer_date = batch.bank_date
-                    payment.payment_month_date_from = from_dt
-                    payment.payment_month_date_to = to_dt
-                    payment.payment_month_display = from_str
-                    payment.month = from_str
 
     def write(self, vals):
         res = super(BatchPaymentInherit, self).write(vals)
         if 'bank_date' in vals and vals['bank_date']:
-            import calendar as cal
             bank_date = fields.Date.to_date(vals['bank_date'])
-            y, m = bank_date.year, bank_date.month
-            last_day = cal.monthrange(y, m)[1]
-            from_dt = bank_date.replace(day=1)
-            to_dt = bank_date.replace(day=last_day)
-            from_str = from_dt.strftime('%b %Y')
-            month_rec = self.env['payments.month'].search([
-                ('date_from', '=', from_dt),
-                ('date_to', '=', to_dt)
-            ], limit=1)
-            if not month_rec:
-                month_rec = self.env['payments.month'].create({
-                    'date_from': from_dt,
-                    'date_to': to_dt,
-                    'name': from_str
-                })
             for batch in self:
                 for payment in batch.payment_ids:
                     payment.write({
                         'transfer_date': bank_date,
-                        'payment_month_date_from': from_dt,
-                        'payment_month_date_to': to_dt,
-                        'payment_month_id': month_rec.id,
-                        'payment_month_display': from_str,
-                        'month': from_str,
                     })
-                    if payment.move_id:
-                        payment.move_id.payment_month_id = month_rec.id
-                        payment.move_id.line_ids.write({'payment_month_id': month_rec.id})
         return res
 
     def validate_batch_button(self):
         res = super(BatchPaymentInherit, self).validate_batch_button()
         for payment in self.payment_ids:
-            payment.date = self.bank_date
             if self.bank_date:
-                import calendar as cal
-                y, m = self.bank_date.year, self.bank_date.month
-                last_day = cal.monthrange(y, m)[1]
-                from_dt = self.bank_date.replace(day=1)
-                to_dt = self.bank_date.replace(day=last_day)
-                from_str = from_dt.strftime('%b %Y')
-                month_rec = self.env['payments.month'].search([
-                    ('date_from', '=', from_dt),
-                    ('date_to', '=', to_dt)
-                ], limit=1)
-                if not month_rec:
-                    month_rec = self.env['payments.month'].create({
-                        'date_from': from_dt,
-                        'date_to': to_dt,
-                        'name': from_str
-                    })
-                payment.write({
-                    'transfer_date': self.bank_date,
-                    'payment_month_date_from': from_dt,
-                    'payment_month_date_to': to_dt,
-                    'payment_month_id': month_rec.id,
-                    'payment_month_display': from_str,
-                    'month': from_str,
-                })
+                payment.write({'transfer_date': self.bank_date})
             payment._update_payment_month_in_journal_entries()
         return res
 
