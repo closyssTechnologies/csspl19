@@ -5,7 +5,7 @@ import re
 from odoo.exceptions import ValidationError
 from odoo.tools import DEFAULT_SERVER_DATE_FORMAT
 
-from odoo import models
+from odoo import models, fields
 import json
 
 
@@ -78,7 +78,8 @@ class CustomBankFormat(models.AbstractModel):
                 else:
                     pay_method = "N"
 
-                pay_date = line.date or lines.bank_date or lines.date or fields.Date.today()
+                # pay_date = line.date or lines.bank_date or lines.date or fields.Date.today()
+                pay_date = fields.Date.today()
                 date_str = pay_date.strftime("%d%m%Y")
                 crn_no = f"{date_str}{batch_seq}{idx:02d}"
 

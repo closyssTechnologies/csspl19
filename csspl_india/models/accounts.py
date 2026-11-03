@@ -1464,7 +1464,8 @@ class CustomExcel(models.TransientModel):
             else:
                 pay_method = "N"
 
-            pay_date = line.date or batch_id.bank_date or batch_id.date or fields.Date.today()
+            # pay_date = line.date or batch_id.bank_date or batch_id.date or fields.Date.today()
+            pay_date = fields.Date.today()
             date_str = pay_date.strftime("%d%m%Y")
             crn_no = f"{date_str}{batch_seq}{idx:02d}"
 
@@ -1555,7 +1556,8 @@ class CustomExcel(models.TransientModel):
             else:
                 pay_method = "N"
 
-            pay_date = line.date or batch_id.bank_date or batch_id.date or fields.Date.today()
+            # pay_date = line.date or batch_id.bank_date or batch_id.date or fields.Date.today()
+            pay_date = fields.Date.today()
             date_str = pay_date.strftime("%d%m%Y")
             crn_no = f"{date_str}{batch_seq}{idx:02d}"
 
