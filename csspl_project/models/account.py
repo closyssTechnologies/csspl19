@@ -458,16 +458,20 @@ class AccountPaymentInherit(models.Model):
     def onchange_payment_month_id(self):
         for rec in self:
             cutoff_date = datetime(2025, 8, 31)
-            if rec.payment_type == 'outbound' and rec.payment_month_id and rec.payment_for == 'salary':
-                payment = self.env['account.payment'].search([('payment_month_id', '=', rec.payment_month_id.id),
-                                                       ('partner_id', '=', rec.partner_id.id),
-                                                       ('payment_for', '=', 'salary'),
-                                                       ('payment_type', '=', 'outbound'),
-                                                       ('id', '!=', rec.id),
-                                                       ('state', 'in', ('posted', 'in_process', 'paid')),
-                                                       ('reversal_move_id', '=', False),
-                                                       ('partner_bank_id', '=', rec.partner_bank_id.id),
-                                                       ('create_date', '>', cutoff_date)], limit=1)
+            if rec.payment_type == 'outbound' and rec.payment_for == 'salary' and rec.payment_month_date_from and rec.payment_month_date_to:
+                payment = self.env['account.payment'].search([
+                    ('partner_id', '=', rec.partner_id.id),
+                    ('payment_for', '=', 'salary'),
+                    ('payment_type', '=', 'outbound'),
+                    ('id', '!=', rec.id),
+                    ('state', 'in', ('posted', 'in_process', 'paid')),
+                    ('reversal_move_id', '=', False),
+                    ('partner_bank_id', '=', rec.partner_bank_id.id),
+                    ('create_date', '>', cutoff_date),
+                    ('analytics_account_id', '=', rec.analytics_account_id.id),
+                    ('payment_month_date_from', '<=', rec.payment_month_date_to),
+                    ('payment_month_date_to', '>=', rec.payment_month_date_from),
+                ], limit=1)
                 _logger.info("Paymentssss: %s", payment)
                 if payment:
                     batch_numbers = ", ".join(filter(None, [p.source_doc or p.batch_payment_id.name for p in payment]))
