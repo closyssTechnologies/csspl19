@@ -262,4 +262,16 @@
             </xpath>
         </field>
     </record>
+    <!-- Inherited Account Journal Form View to add Unique CRN Sequence field -->
+    <record id="view_account_journal_form_inherit_unique_crn" model="ir.ui.view">
+        <field name="name">account.journal.form.inherit.unique.crn</field>
+        <field name="model">account.journal</field>
+        <field name="inherit_id" ref="account.view_account_journal_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='type']" position="after">
+                <field name="is_unique_crn"/>
+            </xpath>
+        </field>
+    </record>
+
 </odoo>

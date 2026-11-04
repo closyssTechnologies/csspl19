@@ -14,6 +14,8 @@ class CustomBankFormat(models.AbstractModel):
     _inherit = 'report.report_xlsx.abstract'
 
     def generate_xlsx_report(self, workbook, data, lines):
+        journal = lines.journal_id or (lines.payment_ids and lines.payment_ids[0].journal_id)
+        is_unique_crn = bool(journal and journal.is_unique_crn)
         bold_one = workbook.add_format({'font_size': 12, 'align': 'vcenter', 'bg_color': '#b7b7b7'})
         title_date_format = workbook.add_format(
             {'num_format': 'd-mm-yyyy'})
@@ -81,7 +83,12 @@ class CustomBankFormat(models.AbstractModel):
                 # pay_date = line.date or lines.bank_date or lines.date or fields.Date.today()
                 pay_date = fields.Date.today()
                 date_str = pay_date.strftime("%d%m%Y")
-                crn_no = f"{date_str}{batch_seq}{idx:02d}"
+                if is_unique_crn:
+                    seq_code = 'bank.report.unique.seq'
+                    company = (journal and journal.company_id) or self.env.company
+                    crn_no = self.env['ir.sequence'].with_company(company).next_by_code(seq_code) or f"{date_str}{batch_seq}{idx:02d}"
+                else:
+                    crn_no = f"{date_str}{batch_seq}{idx:02d}"
 
                 sheet.write(row, col, str(pay_method))
                 sheet.write(row, col + 1, str(line.amount) or ' ')
