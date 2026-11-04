@@ -4,7 +4,7 @@ from odoo.exceptions import ValidationError, UserError
 from odoo.osv import expression
 import re
 import logging
-_logger = logging.getLogger(name_)
+_logger = logging.getLogger(__name__)
 from odoo.tools import (
     date_utils,
     email_split,
