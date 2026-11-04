@@ -470,7 +470,7 @@ class AccountPaymentInherit(models.Model):
                                                        ('create_date', '>', cutoff_date)], limit=1)
                 _logger.info("Paymentssss: %s", payment)
                 if payment:
-                    batch_numbers = ", ".join(payment.filtered(lambda p: p.source_doc).mapped('source_doc'))
+                    batch_numbers = ", ".join(filter(None, [p.source_doc or p.batch_payment_id.name for p in payment]))
                     raise ValidationError(f'Already made payment for {rec.partner_id.name} in {rec.payment_month_id.name} Batch Number {batch_numbers}')
 
     # if value is not set in approval request then user can edit and if approval request is set then validation
