@@ -3,6 +3,8 @@ from datetime import datetime,date
 from odoo.exceptions import ValidationError, UserError
 from odoo.osv import expression
 import re
+import logging
+_logger = logging.getLogger(name_)
 from odoo.tools import (
     date_utils,
     email_split,
@@ -466,6 +468,7 @@ class AccountPaymentInherit(models.Model):
                                                        ('reversal_move_id', '=', False),
                                                        ('partner_bank_id', '=', rec.partner_bank_id.id),
                                                        ('create_date', '>', cutoff_date)], limit=1)
+                _logger.info("Paymentssss: %s", payment)
                 if payment:
                     batch_numbers = ", ".join(payment.filtered(lambda p: p.source_doc).mapped('source_doc'))
                     raise ValidationError(f'Already made payment for {rec.partner_id.name} in {rec.payment_month_id.name} Batch Number {batch_numbers}')
