@@ -138,8 +138,14 @@
                        widget="month_range_field"
                        options="{'end_date_field': 'service_date_to', 'min_precision': 'months', 'always_range': True}"/>
                 <field name="service_date_to" invisible="1"/>
+                <!-- [ANALYTIC-REQ 2026-11-06] OLD: required except Customer Invoice / Vendor Bill
                 <field name="analytic_distribution_id"
                        required="move_type != 'out_invoice' and move_type != 'in_invoice'"
+                       readonly="state == 'posted'"/>
+                -->
+                <!-- [ANALYTIC-REQ 2026-11-06] NEW: required for all move types -->
+                <field name="analytic_distribution_id"
+                       required="1"
                        readonly="state == 'posted'"/>
             </xpath>
 
