@@ -1,0 +1,140 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- List / Tree View -->
+    <record id="view_payment_month_date_change_approval_tree" model="ir.ui.view">
+        <field name="name">payment.month.date.change.approval.tree</field>
+        <field name="model">payment.month.date.change.approval</field>
+        <field name="arch" type="xml">
+            <list string="Date Change Approvals" decoration-info="state == 'draft'" decoration-warning="state == 'pending'" decoration-success="state == 'approved'" decoration-danger="state == 'rejected'" decoration-muted="state == 'cancelled'">
+                <field name="name"/>
+                <field name="payment_id"/>
+                <field name="requested_date_from"/>
+                <field name="requested_date_to"/>
+                <field name="payment_month_date_from"/>
+                <field name="payment_month_date_to"/>
+                <field name="requested_by" widget="many2one_avatar_user"/>
+                <field name="requested_on"/>
+                <field name="approver_id" widget="many2one_avatar_user"/>
+                <field name="approved_by" optional="hide"/>
+                <field name="approved_on" optional="hide"/>
+                <field name="state" widget="badge" decoration-info="state == 'draft'" decoration-warning="state == 'pending'" decoration-success="state == 'approved'" decoration-danger="state == 'rejected'" decoration-muted="state == 'cancelled'"/>
+            </list>
+        </field>
+    </record>
+
+    <!-- Form View -->
+    <record id="view_payment_month_date_change_approval_form" model="ir.ui.view">
+        <field name="name">payment.month.date.change.approval.form</field>
+        <field name="model">payment.month.date.change.approval</field>
+        <field name="arch" type="xml">
+            <form string="Date Change Approval">
+                <header>
+                    <button name="action_submit" string="Submit for Approval" type="object" class="btn-primary" invisible="state != 'draft'"/>
+                    <button name="action_approve" string="Approve" type="object" class="btn-success" invisible="not can_approve"/>
+                    <button name="action_open_reject_wizard" string="Reject" type="object" class="btn-danger" invisible="not can_approve"/>
+                    <button name="action_cancel" string="Cancel Request" type="object" class="btn-secondary" invisible="not can_cancel"/>
+                    <field name="state" widget="statusbar" statusbar_visible="draft,pending,approved,rejected"/>
+                </header>
+                <sheet>
+                    <field name="can_approve" invisible="1"/>
+                    <field name="can_cancel" invisible="1"/>
+                    <div class="oe_title">
+                        <label for="name" string="Approval Reference"/>
+                        <h1>
+                            <field name="name" readonly="1"/>
+                        </h1>
+                    </div>
+                    <group>
+                        <group string="Payment Information">
+                            <field name="payment_id" readonly="state != 'draft'" options="{'no_create': True}"/>
+                            <field name="requested_by" readonly="1"/>
+                            <field name="requested_on" readonly="1"/>
+                            <field name="approver_id" readonly="state != 'draft'" options="{'no_create': True}"/>
+                        </group>
+                        <group string="Date Details">
+                            <label for="requested_date_from" string="Original Dates"/>
+                            <div class="o_row">
+                                <field name="requested_date_from" readonly="1"/>
+                                <span> to </span>
+                                <field name="requested_date_to" readonly="1"/>
+                            </div>
+                            <label for="payment_month_date_from" string="Requested New Dates"/>
+                            <div class="o_row">
+                                <field name="payment_month_date_from" readonly="state != 'draft'"/>
+                                <span> to </span>
+                                <field name="payment_month_date_to" readonly="state != 'draft'"/>
+                            </div>
+                        </group>
+                    </group>
+                    <group string="Reason for Request">
+                        <field name="reason" readonly="state != 'draft'" placeholder="Please provide detailed justification for changing the payment month dates..."/>
+                    </group>
+                    <group string="Decision Details" invisible="state not in ('approved', 'rejected')">
+                        <group invisible="state != 'approved'">
+                            <field name="approved_by" readonly="1"/>
+                            <field name="approved_on" readonly="1"/>
+                        </group>
+                        <group invisible="state != 'rejected'">
+                            <field name="rejected_by" readonly="1"/>
+                            <field name="rejected_on" readonly="1"/>
+                            <field name="rejection_reason" readonly="1"/>
+                        </group>
+                    </group>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <!-- Search View -->
+    <record id="view_payment_month_date_change_approval_search" model="ir.ui.view">
+        <field name="name">payment.month.date.change.approval.search</field>
+        <field name="model">payment.month.date.change.approval</field>
+        <field name="arch" type="xml">
+            <search string="Search Date Change Approvals">
+                <field name="name" string="Reference"/>
+                <field name="payment_id" string="Payment"/>
+                <field name="requested_by" string="Requested By"/>
+                <field name="approver_id" string="Approver"/>
+                <separator/>
+                <filter name="my_pending_approvals" string="My Pending Approvals" domain="[('approver_id', '=', uid), ('state', '=', 'pending')]"/>
+                <filter name="my_requests" string="My Requests" domain="[('requested_by', '=', uid)]"/>
+                <separator/>
+                <filter name="filter_pending" string="Pending Approval" domain="[('state', '=', 'pending')]"/>
+                <filter name="filter_approved" string="Approved" domain="[('state', '=', 'approved')]"/>
+                <filter name="filter_rejected" string="Rejected" domain="[('state', '=', 'rejected')]"/>
+                <filter name="filter_cancelled" string="Cancelled" domain="[('state', '=', 'cancelled')]"/>
+                <group expand="0" string="Group By">
+                    <filter name="group_by_payment" string="Payment" domain="[]" context="{'group_by': 'payment_id'}"/>
+                    <filter name="group_by_state" string="Status" domain="[]" context="{'group_by': 'state'}"/>
+                    <filter name="group_by_approver" string="Approver" domain="[]" context="{'group_by': 'approver_id'}"/>
+                    <filter name="group_by_requester" string="Requested By" domain="[]" context="{'group_by': 'requested_by'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <!-- Action Window -->
+    <record id="action_payment_month_date_change_approval" model="ir.actions.act_window">
+        <field name="name">Date Change Approvals</field>
+        <field name="res_model">payment.month.date.change.approval</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="view_payment_month_date_change_approval_search"/>
+        <field name="context">{'search_default_my_pending_approvals': 1}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                No payment month date change requests found.
+            </p>
+            <p>
+                Requests to modify locked Payment Month Dates will appear here for review and approval.
+            </p>
+        </field>
+    </record>
+
+    <!-- Menu Item under Payments -->
+    <menuitem id="menu_payment_month_date_change_approval"
+              name="Date Change Approvals"
+              parent="account.root_payment_menu"
+              action="action_payment_month_date_change_approval"
+              sequence="35"/>
+</odoo>

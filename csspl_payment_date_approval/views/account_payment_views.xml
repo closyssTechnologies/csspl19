@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_account_payment_form_inherit_date_approval" model="ir.ui.view">
+        <field name="name">account.payment.form.inherit.date.approval</field>
+        <field name="model">account.payment</field>
+        <field name="inherit_id" ref="csspl_project.view_account_payment_form_inherit_csspl_project"/>
+        <field name="arch" type="xml">
+            <xpath expr="//header" position="inside">
+                <button name="action_request_date_change"
+                        string="Request Date Change"
+                        type="object"
+                        class="btn-secondary"
+                        invisible="not is_payment_month_date_locked or has_active_date_change_approval"/>
+            </xpath>
+            <xpath expr="//div[@name='button_box']" position="inside">
+                <button name="action_view_date_change_approvals"
+                        type="object"
+                        class="oe_stat_button"
+                        icon="fa-calendar-check-o"
+                        invisible="date_change_approval_count == 0">
+                    <field name="date_change_approval_count" widget="statinfo" string="Date Approvals"/>
+                </button>
+            </xpath>
+            <xpath expr="//field[@name='payment_month_date_from']" position="before">
+                <field name="is_payment_month_date_locked" invisible="1"/>
+                <field name="has_active_date_change_approval" invisible="1"/>
+                <field name="date_change_approval_count" invisible="1"/>
+            </xpath>
+            <xpath expr="//field[@name='payment_month_date_from']" position="attributes">
+                <attribute name="readonly">is_payment_month_date_locked</attribute>
+            </xpath>
+        </field>
+    </record>
+</odoo>
