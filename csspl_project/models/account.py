@@ -163,7 +163,7 @@ class ResPartner(models.Model):
 class AccountPaymentInherit(models.Model):
     _inherit = 'account.payment'
 
-    classification_id = fields.Many2one('expense.classification', string='Expense Classification')
+    classification_id = fields.Many2one('expense.classification', string='Expense Classification', tracking=True)
     payment_for_id = fields.Many2one('payment.for.master')
     payment_month_id = fields.Many2one(
         comodel_name='payments.month',
@@ -174,8 +174,8 @@ class AccountPaymentInherit(models.Model):
         precompute=True,
         tracking=True
     )
-    payment_month_date_from = fields.Date(string='From Month')
-    payment_month_date_to = fields.Date(string='To Month')
+    payment_month_date_from = fields.Date(string='From Month', tracking=True)
+    payment_month_date_to = fields.Date(string='To Month', tracking=True)
     payment_month_display = fields.Char(
         string='Payments Month',
         compute='_compute_payment_month_display',
@@ -361,7 +361,7 @@ class AccountPaymentInherit(models.Model):
         store=True, readonly=False,
         compute='_compute_destination_account_id',
         domain="[('company_ids', 'in', company_id)]",
-        check_company=True)
+        check_company=True, tracking=True)
     reversal_move_id = fields.Many2one('account.move')
 
 
