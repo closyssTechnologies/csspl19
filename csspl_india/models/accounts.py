@@ -25,7 +25,14 @@ class AccountMoveInherit(models.Model):
     po_no = fields.Char('PO No')
     po_date = fields.Date('PO Date')
     service_date = fields.Date('Service Date')
+    service_date_to = fields.Date('Service End Date')
     partner_id_line = fields.Many2one('res.partner', string="Partner Line")
+
+    @api.constrains('service_date', 'service_date_to')
+    def _check_service_dates(self):
+        for rec in self:
+            if rec.service_date and rec.service_date_to and rec.service_date_to < rec.service_date:
+                raise ValidationError(_("Service End Date cannot be earlier than Service Start Date."))
     amt = fields.Char(compute='amt_in_words', string='amt')
     bank_name = fields.Char('Bank')
     cheque_no = fields.Char(string="Check No")
@@ -477,6 +484,7 @@ class ExcelMergeWizard(models.TransientModel):
                     pay_method = "N"
 
                 partner_name = re.sub(r"[-\d]+", "", line.partner_id.name)
+                crn_no = line.batch_payment_id.ref_bank_no or batch_id.ref_bank_no or line.payment_reference or line.name or batch_id.name or ''
 
                 sheet.write(row, col, line.batch_payment_id.journal_id.bank_account_id.acc_number)
                 sheet.write(row, col + 1, line.partner_bank_id.acc_number or ' ')
@@ -493,7 +501,7 @@ class ExcelMergeWizard(models.TransientModel):
                 sheet.write(row, col + 12, ' ')
                 sheet.write(row, col + 13, ' ')
                 sheet.write(row, col + 14, ' ')
-                sheet.write(row, col + 15, ' ')
+                sheet.write(row, col + 15, str(crn_no).strip() if crn_no else ' ')
                 sheet.write(row, col + 16, ' ')
                 sheet.write(row, col + 17, ' ')
                 sheet.write(row, col + 18, ' ')
@@ -537,7 +545,7 @@ class AccountBatchPaymentInherit(models.Model):
         ('reject', 'Rejected'),
         ('management_approved', 'Management Approved'),
         ('bank_upload', 'Bank Upload'),
-        ('pending_transfer', 'Pending For Transfer'),
+        ('pending_transfer', 'Pending Fo    r Transfer'),
         ('sent', 'Transferred'),
         ('reconciled', 'Reconciled'),
     ], store=True, compute='_compute_state', default='draft', tracking=True)
@@ -576,8 +584,6 @@ class AccountBatchPaymentInherit(models.Model):
         else:
             pass
         res = super(AccountBatchPaymentInherit, self).write(vals)
-        if 'bank_date' in vals:
-            self.set_month_in_payment()
         return res
 
     @api.onchange('payment_ids')
@@ -605,16 +611,9 @@ class AccountBatchPaymentInherit(models.Model):
 
     ##
 
-    # @api.onchange('bank_date')
+    # Changing transfer date should not change or blank out payment month
     def set_month_in_payment(self):
-        if self.payment_ids:
-            payment_to_update = self.payment_ids.filtered(lambda x: x.payment_for in ('other', False))
-            if self.bank_date:
-                payment_month = self.env['payments.month'].search(
-                    [('name', '=', self.bank_date.strftime('%b-%y'))], limit=1)
-                payment_to_update.payment_month_id = payment_month.id if payment_month else False
-            else:
-                payment_to_update.payment_month_id = False
+        pass
 
     @api.onchange('journal_id')
     def change_journal_in_payments(self):
@@ -1159,7 +1158,7 @@ class InheritAccountingPayment(models.Model):
     #     tracking=True,
     #     check_company=True)
 
-    transfer_date = fields.Date(compute="set_transfer_date", store=True, string="Transfer Date")
+    transfer_date = fields.Date(compute="set_transfer_date", store=True, readonly=False, inverse="_inverse_transfer_date", string="Transfer Date")
     cheque_number = fields.Integer(string="Cheque No")
     cheque_number1 = fields.Char(string="Cheque No")
     cheque_date = fields.Date(string="Cheque Date")
@@ -1237,13 +1236,16 @@ class InheritAccountingPayment(models.Model):
         #     raise ValidationError('Payment receipt is not allowed for this contact.')
         # return res
 
+    def _inverse_transfer_date(self):
+        # Transfer date is independent and should not overwrite payment/service month
+        pass
+
     @api.depends('date', 'batch_payment_id', 'batch_payment_id.bank_date')
     def set_transfer_date(self):
         for rec in self:
-            rec.transfer_date = None
             if rec.batch_payment_id and rec.batch_payment_id.bank_date:
                 rec.transfer_date = rec.batch_payment_id.bank_date
-            elif not rec.batch_payment_id:
+            elif not rec.batch_payment_id and not rec.transfer_date:
                 rec.transfer_date = False
 
     # Inherited for sal payment
@@ -1395,9 +1397,33 @@ class CustomExcel(models.TransientModel):
         if self.bank_select == 'icici':
             return self.generate_xlsx_report_axis()
 
+    def _get_unique_crn_sequence(self, journal=None):
+        company = (journal and journal.company_id) or self.env.company
+        seq_code = 'bank.report.unique.seq'
+        seq_val = self.env['ir.sequence'].with_company(company).next_by_code(seq_code)
+        if not seq_val:
+            seq_record = self.env['ir.sequence'].sudo().search([
+                ('code', '=', seq_code),
+                '|', ('company_id', '=', company.id), ('company_id', '=', False)
+            ], limit=1)
+            if not seq_record:
+                seq_record = self.env['ir.sequence'].sudo().create({
+                    'name': 'Bank Report Unique Sequence',
+                    'code': seq_code,
+                    'prefix': '%(day)s%(month)s%(year)s',
+                    'padding': 4,
+                    'number_next': 3,
+                    'number_increment': 1,
+                    'company_id': False,
+                })
+            seq_val = seq_record.with_company(company).next_by_id()
+        return seq_val
+
     def generate_xlsx_report_axis(self):
 
         batch_id = self.env['account.batch.payment'].browse(self.env.context['active_id'])
+        journal = batch_id.journal_id or (batch_id.payment_ids and batch_id.payment_ids[0].journal_id)
+        is_unique_crn = bool(journal and journal.is_unique_crn)
         file_name = f"{batch_id.name}_{fields.Date.today().strftime('%d%B%Y')}.xls"
         # file_name = (batch_id.name) + '_' + (batch_id.today_date.strftime('%d%B%Y')) + '.xls'
         bold_one = xlwt.easyxf('font: bold 1, height 240; align: vertical center;')
@@ -1437,6 +1463,15 @@ class CustomExcel(models.TransientModel):
         total_tax = 0.0
         pay_method = ""
 
+        batch_seq = '1001'
+        if batch_id.ref_bank_no:
+            clean_ref = str(batch_id.ref_bank_no).strip()
+            if len(clean_ref) == 4 and clean_ref.isdigit():
+                batch_seq = clean_ref
+            elif len(clean_ref) >= 12 and clean_ref.isdigit():
+                batch_seq = clean_ref[8:12]
+
+        idx = 1
         for line in batch_id.payment_ids:
             if not line.partner_bank_id.bank_id.bic:
                 raise ValidationError(f'Bank/IFSC not set in partner {line.partner_id.name}')
@@ -1445,15 +1480,24 @@ class CustomExcel(models.TransientModel):
             if line.batch_payment_id.journal_id.bank_id.bic[0:4] == line.partner_bank_id.bank_id.bic[0:4]:
                 pay_method = "I"
             elif line.amount > 200000:
-                # current_time = datetime.datetime.now(pytz.timezone('Asia/Kolkata')).time()
                 current_time = fields.Datetime.context_timestamp(self, fields.Datetime.now()).time()
                 if current_time >= time(15, 0):
-                # if current_time >= datetime.time(15, 0):
                     pay_method = "N"
                 else:
                     pay_method = "R"
             else:
                 pay_method = "N"
+
+            # pay_date = line.date or batch_id.bank_date or batch_id.date or fields.Date.today()
+            pay_date = fields.Date.today()
+            date_str = pay_date.strftime("%d%m%Y")
+            if is_unique_crn:
+                unique_seq = self._get_unique_crn_sequence(journal)
+                val_col_8 = unique_seq
+                crn_no = unique_seq
+            else:
+                val_col_8 = ' '
+                crn_no = f"{date_str}{batch_seq}{idx:02d}"
 
             partner_name = re.sub(r"[-\d]+", "", line.partner_id.name)
 
@@ -1462,24 +1506,25 @@ class CustomExcel(models.TransientModel):
             sheet.write(row, col + 2, partner_name or ' ')
             sheet.write(row, col + 3, int(line.amount) or ' ')
             sheet.write(row, col + 4, str(pay_method))
-            sheet.write(row, col + 5, line.date.strftime("%d-%b-%Y").upper())
+            sheet.write(row, col + 5, pay_date.strftime("%d-%b-%Y").upper())
             sheet.write(row, col + 6, line.partner_bank_id.bank_id.bic or ' ')
             sheet.write(row, col + 7, ' ')
-            sheet.write(row, col + 8, ' ')
+            sheet.write(row, col + 8, val_col_8)
             sheet.write(row, col + 9, ' ')
             sheet.write(row, col + 10, ' ')
             sheet.write(row, col + 11, ' ')
             sheet.write(row, col + 12, ' ')
             sheet.write(row, col + 13, ' ')
             sheet.write(row, col + 14, ' ')
-            sheet.write(row, col + 15, ' ')
+            sheet.write(row, col + 15, crn_no)
             sheet.write(row, col + 16, ' ')
             sheet.write(row, col + 17, ' ')
             sheet.write(row, col + 18, ' ')
             sheet.write(row, col + 19, ' ')
-            sheet.write(row, col + 20, line.narration)
+            sheet.write(row, col + 20, line.narration or '')
 
             row += 1
+            idx += 1
 
         # Save the workbook to a file or return it as a response to a web request.
         fp = BytesIO()
@@ -1500,6 +1545,8 @@ class CustomExcel(models.TransientModel):
     def generate_xlsx_report_icici(self):
 
         batch_id = self.env['account.batch.payment'].browse(self.env.context['active_id'])
+        journal = batch_id.journal_id or (batch_id.payment_ids and batch_id.payment_ids[0].journal_id)
+        is_unique_crn = bool(journal and journal.is_unique_crn)
         file_name = f"{batch_id.name}_{fields.Date.today().strftime('%d%B%Y')}.xls"
         # file_name = (batch_id.name) + '_' + (batch_id.today_date.strftime('%d%B%Y')) + '.xls'
         bold_one = xlwt.easyxf('font: bold 1, height 240; align: vertical center;')
@@ -1515,7 +1562,16 @@ class CustomExcel(models.TransientModel):
         col = 0
         # # For Detailed Tds Report and Summary
 
+        batch_seq = '1001'
+        if batch_id.ref_bank_no:
+            clean_ref = str(batch_id.ref_bank_no).strip()
+            if len(clean_ref) == 4 and clean_ref.isdigit():
+                batch_seq = clean_ref
+            elif len(clean_ref) >= 12 and clean_ref.isdigit():
+                batch_seq = clean_ref[8:12]
+
         pay_method = ""
+        idx = 1
         for line in batch_id.payment_ids:
             if not line.partner_bank_id.bank_id.bic:
                 raise ValidationError(f'Bank/IFSC not set in partner {line.partner_id.name}')
@@ -1524,9 +1580,7 @@ class CustomExcel(models.TransientModel):
             if line.batch_payment_id.journal_id.bank_id.bic[0:4] == line.partner_bank_id.bank_id.bic[0:4]:
                 pay_method = "I"
             elif line.amount > 200000:
-                # current_time = datetime.datetime.now(pytz.timezone('Asia/Kolkata')).time()
                 current_time = fields.Datetime.context_timestamp(self, fields.Datetime.now()).time()
-                # if current_time >= datetime.time(15, 0):
                 if current_time >= time(15, 0):
                     pay_method = "N"
                 else:
@@ -1534,20 +1588,29 @@ class CustomExcel(models.TransientModel):
             else:
                 pay_method = "N"
 
+            # pay_date = line.date or batch_id.bank_date or batch_id.date or fields.Date.today()
+            pay_date = fields.Date.today()
+            date_str = pay_date.strftime("%d%m%Y")
+            if is_unique_crn:
+                crn_no = self._get_unique_crn_sequence(journal)
+            else:
+                crn_no = f"{date_str}{batch_seq}{idx:02d}"
+
             name = re.sub(r"[-\d]+", "", line.partner_id.name).rstrip()
             sheet.write(row, col, str(pay_method))
             sheet.write(row, col + 1, int(line.amount) or ' ')
-            sheet.write(row, col + 2, fields.Date.today(), title_date_format)
+            sheet.write(row, col + 2, pay_date, title_date_format)
             sheet.write(row, col + 3, name)
             sheet.write(row, col + 4, line.partner_bank_id.acc_number or ' ')
             sheet.write(row, col + 5, '')
-            sheet.write(row, col + 6, line.narration)
-            sheet.write(row, col + 7, line.batch_payment_id.journal_id.bank_account_id.acc_number)
-            sheet.write(row, col + 8, '')
-            sheet.write(row, col + 9, line.partner_bank_id.bank_id.bic)
+            sheet.write(row, col + 6, line.narration or '')
+            sheet.write(row, col + 7, line.batch_payment_id.journal_id.bank_account_id.acc_number or '')
+            sheet.write(row, col + 8, crn_no)
+            sheet.write(row, col + 9, line.partner_bank_id.bank_id.bic or '')
             sheet.write(row, col + 10, '11')
 
             row += 1
+            idx += 1
         # Save the workbook to a file or return it as a response to a web request.
         fp = BytesIO()
         workbook.save(fp)
@@ -1696,3 +1759,11 @@ class InheritAccountAnalytic(models.Model):
     #         account.credit = credit
     #         account.payments_transfer = pay_t
     #         account.balance = account.credit - account.debit
+
+class AccountJournalInherit(models.Model):
+    _inherit = 'account.journal'
+
+    is_unique_crn = fields.Boolean(
+        string='Unique CRN Sequence',
+        help='When enabled, Column I in the bank export Excel will generate a unique sequence starting with current date (10+ digits).'
+    )

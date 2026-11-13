@@ -163,7 +163,7 @@
                 <field name="source_doc" optional="hide"/>
                 <field name="css_state" optional="hide"/>
                 <field name="css_local_branch" optional="hide"/>
-                <field name="month" optional="hide"/>
+                <field name="month" optional="show"/>
                 <field name="narration" optional="hide"/>
                 <field name="transfer_date" optional="show" options="{'numeric': true}"/>
             </xpath>

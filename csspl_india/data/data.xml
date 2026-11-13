@@ -40,5 +40,14 @@
             </field>
         </record>
 
-    </data>
+        <record id="seq_bank_report_unique_number" model="ir.sequence">
+            <field name="name">Bank Report Unique Sequence</field>
+            <field name="code">bank.report.unique.seq</field>
+            <field name="prefix">%(day)s%(month)s%(year)s</field>
+            <field name="padding">4</field>
+            <field name="number_next">3</field>
+            <field name="company_id" eval="False"/>
+        </record>
+
+</data>
 </odoo>

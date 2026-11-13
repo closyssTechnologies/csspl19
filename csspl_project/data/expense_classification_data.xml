@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<odoo>
+    <data noupdate="1">
+        <record id="expense_classification_internal" model="expense.classification">
+            <field name="name">Company's Internal Cost</field>
+        </record>
+        <record id="expense_classification_billable" model="expense.classification">
+            <field name="name">Billable to Customers / Clients</field>
+        </record>
+    </data>
+</odoo>

@@ -21,7 +21,9 @@
         <field name="model">payments.month</field>
         <field name="arch" type="xml">
             <list editable="top">
-                <field name="name"/>
+                <field name="date_from"/>
+                <field name="date_to"/>
+                <field name="name" readonly="1"/>
             </list>
         </field>
     </record>
@@ -144,6 +146,9 @@
                     </h1>
                 </div>
             </xpath>
+            <xpath expr="//field[@name='date']" position="after">
+                <field name="classification_id" options="{'no_create': True, 'no_open': True}"/>
+            </xpath>
         </field>
     </record>
 
@@ -177,10 +182,8 @@
                        groups="csspl_project.priority_star_visible"/>
             </xpath>
             <xpath expr="//field[@name='date']" position="after">
-                <field name="bank_date" string="Transfer Date" options="{'numeric': true}"/>
-            </xpath>
-              <xpath expr="//field[@name='date']" position="attributes">
-                 <attribute name="options">{'numeric': true}</attribute>
+                <field name="bank_date" string="Transfer Date"/>
+                <field name="classification_id" optional="show"/>
             </xpath>
         </field>
     </record>
@@ -192,12 +195,11 @@
         <field name="inherit_id" ref="account.view_account_payment_tree"/>
         <field name="arch" type="xml">
             <xpath expr="//field[@name='state']" position="after">
+                <field name="classification_id" optional="show"/>
+                <field name="payment_month_id" optional="show"/>
                 <field name="contact_type" optional="hide"/>
                 <field name="analytics_account_id" optional="show"/>
                 <field name="analytics_plan_id" optional="show"/>
-            </xpath>
-            <xpath expr="//field[@name='date']" position="attributes">
-                <attribute name="options">{'numeric': true}</attribute>
             </xpath>
         </field>
     </record>
@@ -213,18 +215,12 @@
             </xpath>
             <xpath expr="//form/sheet/group/group[2]/field[@name='analytics_plan_id']"
                    position="replace">
-                <!--                <field name="analytics_plan_id" required="1"-->
-                <!--                       options="{'no_create': True}"/>-->
                 <field name="analytics_plan_id"
                        options="{'no_create': True}" required="payment_type != 'inbound'"/>
-                <!--                <field name="partner_type" readonly="1"/>-->
             </xpath>
 
             <xpath expr="//form/sheet/group/group[2]/field[@name='analytics_account_id']"
                    position="replace">
-                <!--                <field name="analytics_account_id" required="1"-->
-                <!--                       options="{'no_create': True}"-->
-                <!--                       domain="[('plan_id','=',analytics_plan_id)]"/>-->
                 <field name="analytics_account_id" required="payment_type != 'inbound'"
                        options="{'no_create': True}"
                        domain="[('plan_id','=',analytics_plan_id)]"/>
@@ -235,9 +231,16 @@
             <!--            </xpath>-->
 
             <xpath expr="//field[@name='journal_id']" position="after">
-                <field name="payment_month_id" required="1" readonly="state == 'paid'"/>
+                <field name="classification_id" required="payment_type != 'inbound'" options="{'no_create': True, 'no_open': True}"/>
+                <field name="transfer_date" readonly="state == 'sent'"/>
+                <field name="payment_month_date_from" string="Payments Month"
+                       widget="month_range_field"
+                       options="{'end_date_field': 'payment_month_date_to', 'min_precision': 'months', 'always_range': True}"
+                       required="1"/>
+                <field name="payment_month_date_to" invisible="1"/>
+                <field name="payment_month_id" invisible="1"/>
+                <field name="payment_month_display" invisible="1"/>
                 <field name="payment_for_id" readonly="state in ('posted', 'cancel')"/>
-                <field name="payment_for" readonly="state in ('posted', 'cancel')"/>
                 <field name="batch_payment_id" readonly="1"/>
             </xpath>
             <xpath expr="//div[@name='button_box']" position="inside">
@@ -254,20 +257,19 @@
             </xpath>
 
             <xpath expr="//header" position="inside">
-<!--                <field name="reversal_move_id" invisible="1"/>-->
-<!--                <field name="payment_state" invisible="1"/>-->
+                <!--                <field name="reversal_move_id" invisible="1"/>-->
+                <!--                <field name="payment_state" invisible="1"/>-->
                 <button name="action_return_entry"
                         type="object"
                         class="btn btn-primary"
                         string="Reverse" invisible="state not in ('paid', 'in_process', 'posted') or reversal_move_id"/>
-<!--                        invisible="state != 'posted' or payment_state == 'reversed'"/>-->
 
             </xpath>
 
-            <xpath expr="//div[@name='button_box']" position="after">
-                <widget name="web_ribbon" title="Reversed" bg_color="bg-danger" invisible="not reversal_move_id"/>
-<!--                        invisible="payment_state != 'reversed'"/>-->
-            </xpath>
+<!--            <xpath expr="//div[@name='button_box']" position="after">-->
+<!--                <widget name="web_ribbon" title="Reversed" bg_color="bg-danger" invisible="not reversal_move_id"/>-->
+<!--                &lt;!&ndash;                        invisible="payment_state != 'reversed'"/>&ndash;&gt;-->
+<!--            </xpath>-->
             <xpath expr="//field[@name='payment_method_line_id']" position="after">
 
                 <field name="destination_account_id"
@@ -279,27 +281,27 @@
             </xpath>
 
             <!--            To hide the Confirm Button when payment is in post state-->
-<!--            <xpath expr="//button[@name='action_post']" position="attributes">-->
-<!--                <attribute name="invisible">-->
-<!--                    batch_payment_id != False or state == 'posted'-->
-<!--                </attribute>-->
+            <!--            <xpath expr="//button[@name='action_post']" position="attributes">-->
+            <!--                <attribute name="invisible">-->
+            <!--                    batch_payment_id != False or state == 'posted'-->
+            <!--                </attribute>-->
 
-<!--            </xpath>-->
+            <!--            </xpath>-->
         </field>
 
     </record>
 
     <!-- Inherited Res Partner Form View To Remove Groups from Account Receivable and Payable   -->
-<!--    <record id="account_view_partner_property_form_inherit" model="ir.ui.view">-->
-<!--        <field name="name">account_view_partner_property_form_inherit</field>-->
-<!--        <field name="model">res.partner</field>-->
-<!--        <field name="inherit_id" ref="account.view_partner_property_form"/>-->
-<!--        <field name="arch" type="xml">-->
-<!--            <xpath expr="//group[@name='accounting_entries']" position="attributes">-->
-<!--                <attribute name="group"/>-->
-<!--            </xpath>-->
-<!--        </field>-->
-<!--    </record>-->
+    <!--    <record id="account_view_partner_property_form_inherit" model="ir.ui.view">-->
+    <!--        <field name="name">account_view_partner_property_form_inherit</field>-->
+    <!--        <field name="model">res.partner</field>-->
+    <!--        <field name="inherit_id" ref="account.view_partner_property_form"/>-->
+    <!--        <field name="arch" type="xml">-->
+    <!--            <xpath expr="//group[@name='accounting_entries']" position="attributes">-->
+    <!--                <attribute name="group"/>-->
+    <!--            </xpath>-->
+    <!--        </field>-->
+    <!--    </record>-->
 
     <record id="account_analytic_items_tree_inherit" model="ir.ui.view">
         <field name="name">account_analytic_items_tree_inherit</field>
@@ -331,6 +333,15 @@
             <xpath expr="//group[@id='header_right_group']//div[@name='journal_div']" position="attributes">
                 <attribute name="groups"/>
             </xpath>
+            <xpath expr="//field[@name='payment_reference']" position="after">
+                <field name="classification_id" options="{'no_create': True, 'no_open': True}"/>
+            </xpath>
+            <xpath expr="//field[@name='invoice_line_ids']/list/field[@name='product_id']" position="after">
+                <field name="classification_id" optional="show" options="{'no_create': True, 'no_open': True}"/>
+            </xpath>
+            <xpath expr="//field[@name='line_ids']/list/field[@name='account_id']" position="after">
+                <field name="classification_id" optional="hide" options="{'no_create': True, 'no_open': True}"/>
+            </xpath>
         </field>
     </record>
 
@@ -351,6 +362,9 @@
         <field name="model">account.analytic.account</field>
         <field name="inherit_id" ref="analytic.view_account_analytic_account_form"/>
         <field name="arch" type="xml">
+            <xpath expr="//field[@name='code']" position="after">
+            <field name="analytic_referenceee"/>
+        </xpath>
             <xpath expr="//div[@name='button_box']" position="inside">
                 <button name="action_view_payment" type="object" class="oe_stat_button" string="payments"
                         icon="fa-money" invisible="count == 0">
@@ -370,11 +384,16 @@
             <xpath expr="//form" position="inside">
                 <field name="payment_ids" invisible="1"/>
             </xpath>
-<!--            <xpath expr="//page[@name='aml_tab']//field[@name='line_ids']" position="attributes">-->
-<!--                <attribute name="readonly">payment_ids != []</attribute>-->
-<!--                &lt;!&ndash;                <attribute name="attrs">{'readonly': [('payment_ids', '!=', False), ('move_type', '=', 'entry')]}</attribute>&ndash;&gt;-->
-<!--                &lt;!&ndash;                <attribute name="readonly">[('payment_ids', '!=', False)]</attribute>&ndash;&gt;-->
-<!--            </xpath>-->
+        </field>
+    </record>
+    <record id="view_move_line_reconcile_tree_inherit" model="ir.ui.view">
+        <field name="name">account.move.line.reconcile.tree.inherit</field>
+        <field name="model">account.move.line</field>
+        <field name="inherit_id" ref="account_accountant.view_move_line_reconcile_tree"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='ref']" position="after">
+                <field name="utr_no" optional="show"/>
+            </xpath>
         </field>
     </record>
 </odoo>

@@ -10,6 +10,7 @@
         'security/ir.model.access.csv',
         'security/sequence.xml',
         'data/uom.xml',
+        'data/expense_classification_data.xml',
         'views/project.xml',
         'views/purchase.xml',
         'wizards/project.xml',
@@ -20,5 +21,10 @@
     'auto_install': False,
     'application': True,
     'license': 'LGPL-3',
+    'assets': {
+        'web.assets_backend': [
+            'csspl_project/static/src/js/month_range_field.js',
+        ],
+    },
 }
 

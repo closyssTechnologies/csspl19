@@ -3,6 +3,8 @@ from datetime import datetime,date
 from odoo.exceptions import ValidationError, UserError
 from odoo.osv import expression
 import re
+import logging
+_logger = logging.getLogger(__name__)
 from odoo.tools import (
     date_utils,
     email_split,
@@ -16,7 +18,8 @@ from odoo.tools import (
     get_lang,
     groupby,
     is_html_empty,
-    sql
+    sql,
+    SQL
 )
 
 import xmlrpc.client
@@ -24,12 +27,41 @@ import xmlrpc.client
 import psycopg2
 import psycopg2.extras
 
+# Master Of Expense Classification
+class ExpenseClassification(models.Model):
+    _name = 'expense.classification'
+    _description = 'Expense Classification'
+
+    name = fields.Char(string='Expense Classification', required=True)
+
+
 # Master Of Payments Month
 class PaymentsMonth(models.Model):
     _name = 'payments.month'
     _description = 'Payment Month'
 
-    name = fields.Char(String='Payments Month')
+    name = fields.Char(string='Payments Month', compute='_compute_name', store=True)
+    date_from = fields.Date(string='Start Date', required=True)
+    date_to = fields.Date(string='End Date', required=True)
+
+    @api.depends('date_from', 'date_to')
+    def _compute_name(self):
+        for rec in self:
+            if rec.date_from and rec.date_to:
+                from_str = rec.date_from.strftime('%b %Y')
+                to_str = rec.date_to.strftime('%b %Y')
+                if from_str == to_str:
+                    rec.name = from_str
+                else:
+                    rec.name = f"{from_str} to {to_str}"
+            else:
+                rec.name = False
+
+    @api.constrains('date_from', 'date_to')
+    def _check_dates(self):
+        for rec in self:
+            if rec.date_from and rec.date_to and rec.date_to < rec.date_from:
+                raise ValidationError(_("End Date cannot be earlier than Start Date."))
 
 
 class VouchersAccountsMaster(models.Model):
@@ -51,6 +83,30 @@ class HrExpenseInherit(models.Model):
     _inherit = 'hr.expense'
 
     atm_ids = fields.Many2many(comodel_name='atm.id', string='ATM ID')
+    classification_id = fields.Many2one(
+        comodel_name='expense.classification',
+        string='Expense Classification',
+        required=True,
+        default=lambda self: self.env.ref('csspl_project.expense_classification_internal', raise_if_not_found=False)
+    )
+
+    def _prepare_move_lines_vals(self):
+        res = super()._prepare_move_lines_vals()
+        if self.classification_id:
+            res['classification_id'] = self.classification_id.id
+        return res
+
+    def _prepare_payments_vals(self):
+        move_vals, payment_vals = super()._prepare_payments_vals()
+        if self.classification_id:
+            move_vals['classification_id'] = self.classification_id.id
+            if 'line_ids' in move_vals:
+                for line_cmd in move_vals['line_ids']:
+                    if line_cmd[0] == 0:  # Command.create(values)
+                        line_cmd[2]['classification_id'] = self.classification_id.id
+            payment_vals['classification_id'] = self.classification_id.id
+        return move_vals, payment_vals
+
 
 
 class AnalyticPlanInherit(models.Model):
@@ -59,14 +115,6 @@ class AnalyticPlanInherit(models.Model):
     is_dashboard = fields.Boolean(help="Enable it if you want to display it on Dashboard")
 
 
-class AccountInvoiceReport(models.Model):
-    _inherit = 'account.invoice.report'
-
-    team_id = fields.Many2one(comodel_name='crm.team', string="Sales Team")
-
-    # def _select(self):
-    #     return super()._select() + ", move.team_id as team_id"
-    #     pass
 
 
 class ResPartner(models.Model):
@@ -115,8 +163,191 @@ class ResPartner(models.Model):
 class AccountPaymentInherit(models.Model):
     _inherit = 'account.payment'
 
+    classification_id = fields.Many2one('expense.classification', string='Expense Classification')
     payment_for_id = fields.Many2one('payment.for.master')
-    payment_month_id = fields.Many2one(comodel_name='payments.month', string='Payments Month', tracking=True)
+    payment_month_id = fields.Many2one(
+        comodel_name='payments.month',
+        string='Payments Month',
+        compute='_compute_payment_month_id',
+        store=True,
+        readonly=False,
+        precompute=True,
+        tracking=True
+    )
+    payment_month_date_from = fields.Date(string='From Month')
+    payment_month_date_to = fields.Date(string='To Month')
+    payment_month_display = fields.Char(
+        string='Payments Month',
+        compute='_compute_payment_month_display',
+        inverse='_inverse_payment_month_display',
+        store=True
+    )
+
+    @api.model
+    def _parse_month_string(self, val):
+        """Parse various month string formats into (date_from, date_to)."""
+        import calendar as cal
+        if not val or not isinstance(val, str):
+            return False, False
+        val = val.strip()
+        if not val:
+            return False, False
+
+        def parse_single(s):
+            s = s.strip().replace('-', ' ').replace('/', ' ')
+            parts = s.split()
+            if len(parts) >= 2:
+                p0, p1 = parts[0], parts[1]
+                if p1.isdigit() and len(p1) == 4:
+                    year = int(p1)
+                    m_str = p0
+                elif p0.isdigit() and len(p0) == 4:
+                    year = int(p0)
+                    m_str = p1
+                else:
+                    return None, None
+                if m_str.isdigit():
+                    month_num = int(m_str)
+                else:
+                    m_lower = m_str.lower()
+                    month_abbrs = [m.lower() for m in cal.month_abbr]
+                    month_names = [m.lower() for m in cal.month_name]
+                    if m_lower in month_abbrs:
+                        month_num = month_abbrs.index(m_lower)
+                    elif m_lower in month_names:
+                        month_num = month_names.index(m_lower)
+                    else:
+                        matches = [i for i, name in enumerate(month_names) if name and name.startswith(m_lower[:3])]
+                        month_num = matches[0] if matches else None
+                if month_num and 1 <= month_num <= 12:
+                    return year, month_num
+            return None, None
+
+        try:
+            if ' to ' in val:
+                p_from, p_to = val.split(' to ', 1)
+                fy, fm = parse_single(p_from)
+                ty, tm = parse_single(p_to)
+                if fy and fm and ty and tm:
+                    return date(fy, fm, 1), date(ty, tm, cal.monthrange(ty, tm)[1])
+            else:
+                y, m = parse_single(val)
+                if y and m:
+                    return date(y, m, 1), date(y, m, cal.monthrange(y, m)[1])
+        except Exception:
+            pass
+        return False, False
+
+    @api.onchange('transfer_date')
+    def _onchange_transfer_date(self):
+        # Transfer date is independent and should not overwrite payment/service month
+        pass
+
+    @api.depends('payment_month_date_from', 'payment_month_date_to', 'date', 'month')
+    def _compute_payment_month_id(self):
+        import calendar as cal
+        for rec in self:
+            from_dt = rec.payment_month_date_from
+            to_dt = rec.payment_month_date_to
+
+            # Auto-populate date_from/date_to if missing
+            if not from_dt or not to_dt:
+                if rec.payment_month_id:
+                    if rec.payment_month_id.date_from and rec.payment_month_id.date_to:
+                        from_dt = rec.payment_month_id.date_from
+                        to_dt = rec.payment_month_id.date_to
+                    elif rec.payment_month_id.name:
+                        parsed_from, parsed_to = self._parse_month_string(rec.payment_month_id.name)
+                        if parsed_from and parsed_to:
+                            from_dt, to_dt = parsed_from, parsed_to
+                    if from_dt and to_dt:
+                        rec.payment_month_date_from = from_dt
+                        rec.payment_month_date_to = to_dt
+                elif rec.month:
+                    parsed_from, parsed_to = self._parse_month_string(rec.month)
+                    if parsed_from and parsed_to:
+                        from_dt, to_dt = parsed_from, parsed_to
+                        rec.payment_month_date_from = from_dt
+                        rec.payment_month_date_to = to_dt
+                elif rec.date:
+                    y, m = rec.date.year, rec.date.month
+                    last_day = cal.monthrange(y, m)[1]
+                    from_dt = rec.date.replace(day=1)
+                    to_dt = rec.date.replace(day=last_day)
+                    rec.payment_month_date_from = from_dt
+                    rec.payment_month_date_to = to_dt
+
+            if from_dt and to_dt:
+                month_rec = self.env['payments.month'].search([
+                    ('date_from', '=', from_dt),
+                    ('date_to', '=', to_dt)
+                ], limit=1)
+                if not month_rec:
+                    from_str = from_dt.strftime('%b %Y')
+                    to_str = to_dt.strftime('%b %Y')
+                    if from_str == to_str:
+                        name = from_str
+                    else:
+                        name = f"{from_str} to {to_str}"
+                    month_rec = self.env['payments.month'].create({
+                        'date_from': from_dt,
+                        'date_to': to_dt,
+                        'name': name
+                    })
+                rec.payment_month_id = month_rec.id
+                if not rec.month:
+                    rec.month = month_rec.name
+            else:
+                if not rec.payment_month_id:
+                    rec.payment_month_id = False
+
+    @api.depends('payment_month_date_from', 'payment_month_date_to', 'payment_month_id', 'month')
+    def _compute_payment_month_display(self):
+        for rec in self:
+            if rec.payment_month_date_from and rec.payment_month_date_to:
+                from_str = rec.payment_month_date_from.strftime('%b %Y')
+                to_str = rec.payment_month_date_to.strftime('%b %Y')
+                if from_str == to_str:
+                    rec.payment_month_display = from_str
+                else:
+                    rec.payment_month_display = f"{from_str} to {to_str}"
+            elif rec.payment_month_id:
+                rec.payment_month_display = rec.payment_month_id.name
+            elif rec.month:
+                rec.payment_month_display = rec.month
+            else:
+                rec.payment_month_display = ''
+
+    def _inverse_payment_month_display(self):
+        for rec in self:
+            val = (rec.payment_month_display or '').strip()
+            if not val:
+                continue
+            from_dt, to_dt = self._parse_month_string(val)
+            if from_dt and to_dt:
+                rec.payment_month_date_from = from_dt
+                rec.payment_month_date_to = to_dt
+                from_str = from_dt.strftime('%b %Y')
+                to_str = to_dt.strftime('%b %Y')
+                name = from_str if from_str == to_str else f"{from_str} to {to_str}"
+                rec.month = name
+            else:
+                raise ValidationError(_(
+                    "Invalid format for Payments Month. Use 'Mon YYYY' (e.g. Feb 2026) "
+                    "or 'Mon YYYY to Mon YYYY' (e.g. Feb 2026 to Mar 2026)."
+                ))
+
+    @api.constrains('payment_month_date_from', 'payment_month_date_to')
+    def _check_payment_month_dates(self):
+        for rec in self:
+            if rec.payment_month_date_from and rec.payment_month_date_to and rec.payment_month_date_to < rec.payment_month_date_from:
+                raise ValidationError(_("Period End Date cannot be earlier than Period Start Date."))
+
+    @api.constrains('classification_id', 'payment_type')
+    def _check_classification_required(self):
+        for payment in self:
+            if payment.payment_type == 'outbound' and not payment.classification_id:
+                raise ValidationError(_("Expense Classification is mandatory for Send (Outbound) payments."))
     approval_type = fields.Many2one(comodel_name='approval.category', string='Approval_type') ## No use till yet
     approval_request = fields.Many2one(comodel_name='approval.request', string='Approval Request')
     contact_type = fields.Selection(related="partner_id.cust_partner_type", store=True)
@@ -227,18 +458,23 @@ class AccountPaymentInherit(models.Model):
     def onchange_payment_month_id(self):
         for rec in self:
             cutoff_date = datetime(2025, 8, 31)
-            if rec.payment_type == 'outbound' and rec.payment_month_id and rec.payment_for == 'salary':
-                payment = self.env['account.payment'].search([('payment_month_id', '=', rec.payment_month_id.id),
-                                                       ('partner_id', '=', rec.partner_id.id),
-                                                       ('payment_for', '=', 'salary'),
-                                                       ('payment_type', '=', 'outbound'),
-                                                       ('id', '!=', rec.id),
-                                                       ('state', 'in', ('posted', 'in_process', 'paid')),
-                                                       ('reversal_move_id', '=', False),
-                                                       ('partner_bank_id', '=', rec.partner_bank_id.id),
-                                                       ('create_date', '>', cutoff_date)], limit=1)
+            if rec.payment_type == 'outbound' and rec.payment_for == 'salary' and rec.payment_month_date_from and rec.payment_month_date_to:
+                payment = self.env['account.payment'].search([
+                    ('partner_id', '=', rec.partner_id.id),
+                    ('payment_for', '=', 'salary'),
+                    ('payment_type', '=', 'outbound'),
+                    ('id', '!=', rec.id),
+                    ('state', 'in', ('posted', 'in_process', 'paid')),
+                    ('reversal_move_id', '=', False),
+                    ('partner_bank_id', '=', rec.partner_bank_id.id),
+                    ('create_date', '>', cutoff_date),
+                    ('analytics_account_id', '=', rec.analytics_account_id.id),
+                    ('payment_month_date_from', '<=', rec.payment_month_date_to),
+                    ('payment_month_date_to', '>=', rec.payment_month_date_from),
+                ], limit=1)
+                _logger.info("Paymentssss: %s", payment)
                 if payment:
-                    batch_numbers = ", ".join(payment.filtered(lambda p: p.source_doc).mapped('source_doc'))
+                    batch_numbers = ", ".join(filter(None, [p.source_doc or p.batch_payment_id.name for p in payment]))
                     raise ValidationError(f'Already made payment for {rec.partner_id.name} in {rec.payment_month_id.name} Batch Number {batch_numbers}')
 
     # if value is not set in approval request then user can edit and if approval request is set then validation
@@ -337,6 +573,98 @@ class AccountPaymentInherit(models.Model):
             method_lines = self.journal_id.outbound_payment_method_line_ids
         payment_method_line = method_lines[:1]
 
+        # Determine payment month and transfer date from original payment
+        pm_id = self.payment_month_id.id if self.payment_month_id else False
+        pm_date_from = self.payment_month_date_from or (self.payment_month_id.date_from if self.payment_month_id else False)
+        pm_date_to = self.payment_month_date_to or (self.payment_month_id.date_to if self.payment_month_id else False)
+        pm_display = self.payment_month_display or (self.payment_month_id.name if self.payment_month_id else (self.month or False))
+        month_str = self.month or (self.payment_month_id.name if self.payment_month_id else False)
+        transfer_dt = self.transfer_date or False
+
+        if not pm_id and (pm_date_from and pm_date_to):
+            month_rec = self.env['payments.month'].search([
+                ('date_from', '=', pm_date_from),
+                ('date_to', '=', pm_date_to)
+            ], limit=1)
+            if not month_rec:
+                from_str = pm_date_from.strftime('%b %Y')
+                to_str = pm_date_to.strftime('%b %Y')
+                name = from_str if from_str == to_str else f"{from_str} to {to_str}"
+                month_rec = self.env['payments.month'].create({
+                    'date_from': pm_date_from,
+                    'date_to': pm_date_to,
+                    'name': name
+                })
+            pm_id = month_rec.id
+
+        if not pm_id and month_str:
+            parsed_from, parsed_to = self._parse_month_string(month_str)
+            if parsed_from and parsed_to:
+                month_rec = self.env['payments.month'].search([
+                    ('date_from', '=', parsed_from),
+                    ('date_to', '=', parsed_to)
+                ], limit=1)
+                if not month_rec:
+                    from_str = parsed_from.strftime('%b %Y')
+                    to_str = parsed_to.strftime('%b %Y')
+                    name = from_str if from_str == to_str else f"{from_str} to {to_str}"
+                    month_rec = self.env['payments.month'].create({
+                        'date_from': parsed_from,
+                        'date_to': parsed_to,
+                        'name': name
+                    })
+                pm_id = month_rec.id
+                pm_date_from = parsed_from
+                pm_date_to = parsed_to
+                pm_display = month_rec.name
+
+        if not pm_id and self.move_id and self.move_id.payment_month_id:
+            pm_id = self.move_id.payment_month_id.id
+            pm_date_from = self.move_id.payment_month_id.date_from
+            pm_date_to = self.move_id.payment_month_id.date_to
+            pm_display = self.move_id.payment_month_id.name
+            month_str = self.move_id.payment_month_id.name
+
+        if not pm_id and transfer_dt:
+            import calendar as cal
+            y, m = transfer_dt.year, transfer_dt.month
+            last_day = cal.monthrange(y, m)[1]
+            pm_date_from = transfer_dt.replace(day=1)
+            pm_date_to = transfer_dt.replace(day=last_day)
+            pm_display = pm_date_from.strftime('%b %Y')
+            month_str = pm_display
+            month_rec = self.env['payments.month'].search([
+                ('date_from', '=', pm_date_from),
+                ('date_to', '=', pm_date_to)
+            ], limit=1)
+            if not month_rec:
+                month_rec = self.env['payments.month'].create({
+                    'date_from': pm_date_from,
+                    'date_to': pm_date_to,
+                    'name': pm_display
+                })
+            pm_id = month_rec.id
+
+        if not pm_id and self.date:
+            import calendar as cal
+            y, m = self.date.year, self.date.month
+            last_day = cal.monthrange(y, m)[1]
+            pm_date_from = self.date.replace(day=1)
+            pm_date_to = self.date.replace(day=last_day)
+            pm_display = pm_date_from.strftime('%b %Y')
+            month_str = pm_display
+            month_rec = self.env['payments.month'].search([
+                ('date_from', '=', pm_date_from),
+                ('date_to', '=', pm_date_to)
+            ], limit=1)
+            if not month_rec:
+                month_rec = self.env['payments.month'].create({
+                    'date_from': pm_date_from,
+                    'date_to': pm_date_to,
+                    'name': pm_display
+                })
+            pm_id = month_rec.id
+
         vals = {
             'payment_type': target_payment_type,
             'partner_type': self.partner_type or ('supplier' if self.payment_type == 'outbound' else 'customer'),
@@ -344,8 +672,14 @@ class AccountPaymentInherit(models.Model):
             'journal_id': self.journal_id.id,
             'amount': self.amount,
             'date': fields.Date.context_today(self),
-            'memo': f"Return Payment against {self.name}" if self.name else "Return Payment",
+            'memo': f"Return Receipt against {self.name}" if target_payment_type == 'inbound' else f"Return Payment against {self.name}",
             'payment_method_line_id': payment_method_line.id if payment_method_line else False,
+            'payment_month_id': pm_id,
+            'payment_month_date_from': pm_date_from,
+            'payment_month_date_to': pm_date_to,
+            'payment_month_display': pm_display,
+            'month': month_str,
+            'transfer_date': transfer_dt,
         }
 
         if hasattr(self, 'destination_account_id') and self.destination_account_id:
@@ -358,10 +692,6 @@ class AccountPaymentInherit(models.Model):
             vals['narration'] = self.narration
         if hasattr(self, 'partner_bank_id') and self.partner_bank_id:
             vals['partner_bank_id'] = self.partner_bank_id.id
-        if hasattr(self, 'payment_month_id') and self.payment_month_id:
-            vals['payment_month_id'] = self.payment_month_id.id
-        if hasattr(self, 'month') and self.month:
-            vals['month'] = self.month
         if hasattr(self, 'css_local_branch') and self.css_local_branch:
             vals['css_local_branch'] = self.css_local_branch
         if hasattr(self, 'css_state') and self.css_state:
@@ -372,13 +702,29 @@ class AccountPaymentInherit(models.Model):
             vals['payment_for'] = self.payment_for
 
         return_payment = self.env['account.payment'].create(vals)
+        # Explicitly ensure payment month fields are preserved on return_payment
+        return_payment.write({
+            'payment_month_id': pm_id,
+            'payment_month_date_from': pm_date_from,
+            'payment_month_date_to': pm_date_to,
+            'payment_month_display': pm_display,
+            'month': month_str,
+            'transfer_date': transfer_dt,
+        })
         return_payment.action_post()
 
         # Link reversal moves
         if return_payment.move_id:
             self.reversal_move_id = return_payment.move_id.id
-        if self.move_id and return_payment.move_id:
-            return_payment.reversal_move_id = self.move_id.id
+            if pm_id:
+                return_payment.move_id.payment_month_id = pm_id
+                return_payment.move_id.line_ids.write({'payment_month_id': pm_id})
+        if self.move_id:
+            if return_payment.move_id:
+                return_payment.reversal_move_id = self.move_id.id
+            if pm_id:
+                self.move_id.payment_month_id = pm_id
+                self.move_id.line_ids.write({'payment_month_id': pm_id})
 
         # Reconcile counterpart/destination account (e.g. payable/receivable) between original payment and return receipt
         if self.move_id and return_payment.move_id:
@@ -399,12 +745,16 @@ class AccountPaymentInherit(models.Model):
             pass
 
         return {
-            'name': _('Reverse of %s', self.name),
+            'name': _('Reversal Receipt of %s', self.name) if target_payment_type == 'inbound' else _('Reverse of %s', self.name),
             'type': 'ir.actions.act_window',
             'res_model': 'account.payment',
             'view_mode': 'form',
             'res_id': return_payment.id,
             'target': 'current',
+            'context': {
+                'default_payment_type': target_payment_type,
+                'default_partner_type': self.partner_type,
+            },
         }
 
 
@@ -437,6 +787,24 @@ class ChangeJournalInBatch(models.TransientModel):
 class BatchPaymentInherit(models.Model):
     _inherit = 'account.batch.payment'
 
+    classification_id = fields.Many2one(
+        comodel_name='expense.classification',
+        string='Expense Classification',
+        compute='_compute_classification_id',
+        store=True,
+        readonly=False,
+        precompute=True
+    )
+
+    @api.depends('payment_ids.classification_id')
+    def _compute_classification_id(self):
+        for batch in self:
+            classifications = batch.payment_ids.mapped('classification_id')
+            if classifications:
+                batch.classification_id = classifications[0].id
+            elif not batch.classification_id:
+                batch.classification_id = False
+
     changing_journal = fields.Boolean(string='Allow Journal Change', default=False)
 
     priority = fields.Selection([
@@ -449,12 +817,30 @@ class BatchPaymentInherit(models.Model):
     prioritys = fields.Boolean()
     prioritys_1 = fields.Boolean()
 
+    @api.onchange('bank_date')
+    def _onchange_bank_date(self):
+        for batch in self:
+            if batch.bank_date:
+                for payment in batch.payment_ids:
+                    payment.transfer_date = batch.bank_date
+
+    def write(self, vals):
+        res = super(BatchPaymentInherit, self).write(vals)
+        if 'bank_date' in vals and vals['bank_date']:
+            bank_date = fields.Date.to_date(vals['bank_date'])
+            for batch in self:
+                for payment in batch.payment_ids:
+                    payment.write({
+                        'transfer_date': bank_date,
+                    })
+        return res
+
     def validate_batch_button(self):
         res = super(BatchPaymentInherit, self).validate_batch_button()
         for payment in self.payment_ids:
-            payment.date = self.bank_date
-            # for line in payment.payment_ids:
-            #     line.state = 'posted'
+            if self.bank_date:
+                payment.write({'transfer_date': self.bank_date})
+            payment._update_payment_month_in_journal_entries()
         return res
 
     def button_change_journal(self):
@@ -533,11 +919,84 @@ class AnalyticItemsInherit(models.Model):
 class AccountMoveInherit(models.Model):
     _inherit = 'account.move'
 
+    service_date = fields.Date('Service Date')
+    service_date_to = fields.Date('Service End Date')
     partner_type = fields.Selection([
         ('customer', 'Customer'),
         ('supplier', 'Vendor'),
     ], default='customer', tracking=True, required=True)
     payment_month_id = fields.Many2one('payments.month', string="Payment Month")
+    classification_id = fields.Many2one(
+        comodel_name='expense.classification',
+        string='Expense Classification',
+        compute='_compute_classification_id',
+        store=True,
+        readonly=False,
+        precompute=True
+    )
+
+    @api.depends('invoice_line_ids.classification_id', 'line_ids.classification_id')
+    def _compute_classification_id(self):
+        for move in self:
+            line = move.invoice_line_ids.filtered('classification_id') or move.line_ids.filtered('classification_id')
+            if line:
+                move.classification_id = line[0].classification_id.id
+            elif not move.classification_id:
+                move.classification_id = False
+
+    def _reverse_moves(self, default_values_list=None, cancel=False):
+        if not default_values_list:
+            default_values_list = [{} for _ in self]
+        for move, default_values in zip(self, default_values_list):
+            pm = move.payment_month_id or (move.origin_payment_id.payment_month_id if hasattr(move, 'origin_payment_id') and move.origin_payment_id else False)
+            if not pm:
+                pay = self.env['account.payment'].search([('move_id', '=', move.id)], limit=1)
+                if pay and pay.payment_month_id:
+                    pm = pay.payment_month_id
+            if pm:
+                default_values['payment_month_id'] = pm.id
+
+        reverse_moves = super()._reverse_moves(default_values_list=default_values_list, cancel=cancel)
+
+        for orig_move, rev_move, default_values in zip(self, reverse_moves, default_values_list):
+            pm_id = orig_move.payment_month_id.id if orig_move.payment_month_id else default_values.get('payment_month_id')
+            if not pm_id and hasattr(orig_move, 'origin_payment_id') and orig_move.origin_payment_id and orig_move.origin_payment_id.payment_month_id:
+                pm_id = orig_move.origin_payment_id.payment_month_id.id
+            if not pm_id:
+                pay = self.env['account.payment'].search([('move_id', '=', orig_move.id)], limit=1)
+                if pay and pay.payment_month_id:
+                    pm_id = pay.payment_month_id.id
+
+            if pm_id:
+                rev_move.payment_month_id = pm_id
+                rev_move.line_ids.write({'payment_month_id': pm_id})
+                month_rec = self.env['payments.month'].browse(pm_id)
+                rev_payments = (rev_move.origin_payment_id if hasattr(rev_move, 'origin_payment_id') else self.env['account.payment']) | self.env['account.payment'].search([('move_id', '=', rev_move.id)])
+                for p in rev_payments:
+                    p.write({
+                        'payment_month_id': pm_id,
+                        'payment_month_date_from': month_rec.date_from,
+                        'payment_month_date_to': month_rec.date_to,
+                        'payment_month_display': month_rec.name,
+                        'month': month_rec.name,
+                    })
+
+        return reverse_moves
+
+    def action_post(self):
+        for move in self:
+            if not move.payment_month_id and move.reversed_entry_id and move.reversed_entry_id.payment_month_id:
+                move.payment_month_id = move.reversed_entry_id.payment_month_id.id
+            if move.payment_month_id:
+                move.line_ids.filtered(lambda l: not l.payment_month_id).write({
+                    'payment_month_id': move.payment_month_id.id
+                })
+        res = super().action_post()
+        for move in self:
+            if move.payment_month_id:
+                move.line_ids.write({'payment_month_id': move.payment_month_id.id})
+        return res
+
 
 
 
@@ -610,6 +1069,7 @@ class AccountMoveInherit(models.Model):
 class AccountMoveLineInherit(models.Model):
     _inherit = 'account.move.line'
 
+    classification_id = fields.Many2one('expense.classification', string='Expense Classification')
     task_id = fields.Many2one('project.task')
     product_uom_id = fields.Many2one(
         comodel_name='uom.uom',
@@ -619,6 +1079,7 @@ class AccountMoveLineInherit(models.Model):
         ondelete="restrict",
     )
     payment_month_id = fields.Many2one('payments.month', string="Payment Month")
+    utr_no = fields.Char(related='payment_id.utr_no', string="UTR No", store=True)
 
 
 class AccountTaxInherit(models.Model):
@@ -630,8 +1091,11 @@ class AccountTaxInherit(models.Model):
 class AccountAnalyticInherit(models.Model):
     _inherit = 'account.analytic.account'
 
+    analytic_referenceee = fields.Char(
+        string="Analytic Reference",
+    )
+
     count = fields.Integer(string='Count')
-    # count = fields.Integer(string='Count', compute="_compute_count")
 
     def name_get(self):
         result = []
@@ -724,5 +1188,145 @@ class L10n_InWithholdWizard(models.TransientModel):
                             })
 
         return super().action_create_and_post_withhold()
+
+
+class AccountInvoiceReport(models.Model):
+    _inherit = 'account.invoice.report'
+
+    team_id = fields.Many2one(comodel_name='crm.team', string="Sales Team")
+    analytic_account_id = fields.Many2one('account.analytic.account', string='Analytic Account', readonly=True)
+
+    _depends = {
+        'account.move.line': ['analytic_distribution'],
+    }
+
+    @api.model
+    def _select(self) -> SQL:
+        return SQL(
+            '''
+            SELECT
+                line.id,
+                line.move_id,
+                line.product_id,
+                line.account_id,
+                line.journal_id,
+                line.company_id,
+                line.company_currency_id,
+                line.partner_id AS commercial_partner_id,
+                account.account_type AS user_type,
+                move.state,
+                move.move_type,
+                move.partner_id,
+                move.invoice_user_id,
+                move.fiscal_position_id,
+                move.payment_state,
+                move.invoice_date,
+                move.invoice_date_due,
+                uom_template.id                                             AS product_uom_id,
+                template.categ_id                                           AS product_categ_id,
+
+                -- Weighted measures
+                (line.quantity * COALESCE(uom_line.factor, 1) / NULLIF(COALESCE(uom_template.factor, 1), 0.0) * (CASE WHEN move.move_type IN ('in_invoice','out_refund','in_receipt') THEN -1 ELSE 1 END)) 
+                    * COALESCE((line.analytic_distribution ->> keys.analytic_account_id_str)::float, 100.0) / 100.0 
+                                                                            AS quantity,
+                (line.price_subtotal * (CASE WHEN move.move_type IN ('in_invoice','out_refund','in_receipt') THEN -1 ELSE 1 END)) 
+                    * COALESCE((line.analytic_distribution ->> keys.analytic_account_id_str)::float, 100.0) / 100.0 
+                                                                            AS price_subtotal_currency,
+                (-line.balance * account_currency_table.rate) 
+                    * COALESCE((line.analytic_distribution ->> keys.analytic_account_id_str)::float, 100.0) / 100.0 
+                                                                            AS price_subtotal,
+                (line.price_total * (CASE WHEN move.move_type IN ('in_invoice','out_refund','in_receipt') THEN -1 ELSE 1 END) / move.invoice_currency_rate) 
+                    * COALESCE((line.analytic_distribution ->> keys.analytic_account_id_str)::float, 100.0) / 100.0 
+                                                                            AS price_total,
+                (line.price_total * (CASE WHEN move.move_type IN ('in_invoice','out_refund','in_receipt') THEN -1 ELSE 1 END)) 
+                    * COALESCE((line.analytic_distribution ->> keys.analytic_account_id_str)::float, 100.0) / 100.0 
+                                                                            AS price_total_currency,
+
+                -- Average price, margins and inventory value weighted
+                (-COALESCE(
+                   (line.balance / NULLIF(line.quantity, 0.0)) * (CASE WHEN move.move_type IN ('in_invoice','out_refund','in_receipt') THEN -1 ELSE 1 END)
+                   / NULLIF(COALESCE(uom_line.factor, 1), 0.0) * COALESCE(uom_template.factor, 1),
+                   0.0) * account_currency_table.rate)
+                   * COALESCE((line.analytic_distribution ->> keys.analytic_account_id_str)::float, 100.0) / 100.0
+                                                                            AS price_average,
+                (CASE
+                    WHEN move.move_type NOT IN ('out_invoice', 'out_receipt', 'out_refund') THEN 0.0
+                    WHEN move.move_type = 'out_refund' THEN account_currency_table.rate * (-line.balance + (line.quantity * COALESCE(uom_line.factor, 1) / NULLIF(COALESCE(uom_template.factor, 1), 0.0)) * COALESCE(product.standard_price -> line.company_id::text, to_jsonb(0.0))::float)
+                    ELSE account_currency_table.rate * (-line.balance - (line.quantity * COALESCE(uom_line.factor, 1) / NULLIF(COALESCE(uom_template.factor, 1), 0.0)) * COALESCE(product.standard_price -> line.company_id::text, to_jsonb(0.0))::float)
+                END) * COALESCE((line.analytic_distribution ->> keys.analytic_account_id_str)::float, 100.0) / 100.0
+                                                                            AS price_margin,
+                (account_currency_table.rate * line.quantity * COALESCE(uom_line.factor, 1) / NULLIF(COALESCE(uom_template.factor, 1), 0.0) * (CASE WHEN move.move_type IN ('out_invoice','in_refund','out_receipt') THEN -1 ELSE 1 END)
+                    * COALESCE(product.standard_price -> line.company_id::text, to_jsonb(0.0))::float) 
+                    * COALESCE((line.analytic_distribution ->> keys.analytic_account_id_str)::float, 100.0) / 100.0 
+                                                                            AS inventory_value,
+
+                COALESCE(partner.country_id, commercial_partner.country_id) AS country_id,
+                line.currency_id                                            AS currency_id,
+                move.team_id                                                AS team_id,
+                move.service_date                                           AS service_date,
+                account_analytic_account.id                                 AS analytic_account_id
+            '''
+        )
+
+    @api.model
+    def _from(self) -> SQL:
+        return SQL(
+            """
+            FROM account_move_line line
+                LEFT JOIN res_partner partner ON partner.id = line.partner_id
+                LEFT JOIN product_product product ON product.id = line.product_id
+                LEFT JOIN account_account account ON account.id = line.account_id
+                LEFT JOIN product_template template ON template.id = product.product_tmpl_id
+                LEFT JOIN uom_uom uom_line ON uom_line.id = line.product_uom_id
+                LEFT JOIN uom_uom uom_template ON uom_template.id = template.uom_id
+                INNER JOIN account_move move ON move.id = line.move_id
+                LEFT JOIN res_partner commercial_partner ON commercial_partner.id = move.commercial_partner_id
+                JOIN %(currency_table)s ON account_currency_table.company_id = line.company_id
+
+                -- Unpack analytic distribution JSONB keys
+                LEFT JOIN LATERAL jsonb_object_keys(line.analytic_distribution) AS keys(analytic_account_id_str) ON TRUE
+                LEFT JOIN account_analytic_account ON account_analytic_account.id = NULLIF(keys.analytic_account_id_str, '')::integer
+            """,
+            currency_table=self.env['res.currency']._get_simple_currency_table(self.env.companies),
+        )
+
+
+class AccountPaymentRegisterInherit(models.TransientModel):
+    _inherit = 'account.payment.register'
+
+    classification_id = fields.Many2one(
+        comodel_name='expense.classification',
+        string='Expense Classification',
+        compute='_compute_classification_id',
+        store=True,
+        readonly=False,
+        precompute=True
+    )
+
+    @api.depends('line_ids')
+    def _compute_classification_id(self):
+        for wizard in self:
+            moves = wizard.line_ids.mapped('move_id')
+            classifications = moves.mapped('classification_id')
+            if classifications:
+                wizard.classification_id = classifications[0].id
+            else:
+                wizard.classification_id = False
+
+    def _create_payment_vals_from_wizard(self, batch_result):
+        res = super()._create_payment_vals_from_wizard(batch_result)
+        res['classification_id'] = self.classification_id.id
+        return res
+
+    def _create_payment_vals_from_batch(self, batch_result):
+        res = super()._create_payment_vals_from_batch(batch_result)
+        res['classification_id'] = self.classification_id.id
+        return res
+
+
+
+
+
+
 
 
