@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Request Date Change Wizard Form -->
+    <record id="view_payment_date_change_wizard_form" model="ir.ui.view">
+        <field name="name">payment.date.change.wizard.form</field>
+        <field name="model">payment.date.change.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Request Date Change">
+                <group>
+                    <field name="payment_id" options="{'no_open': True}"/>
+                </group>
+                <group>
+                    <group string="Current Dates">
+                        <field name="current_date_from"/>
+                        <field name="current_date_to"/>
+                    </group>
+                    <group string="Proposed New Dates">
+                        <field name="new_date_from"/>
+                        <field name="new_date_to"/>
+                    </group>
+                </group>
+                <group string="Justification">
+                    <field name="reason" placeholder="Please state clearly why the payment month dates need to be changed..."/>
+                </group>
+                <group>
+                    <field name="approver_id" options="{'no_open': True, 'no_create': True}"/>
+                </group>
+                <footer>
+                    <button name="action_submit" string="Submit for Approval" type="object" class="btn-primary"/>
+                    <button string="Cancel" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <!-- Reject Wizard Form -->
+    <record id="view_payment_date_change_reject_wizard_form" model="ir.ui.view">
+        <field name="name">payment.date.change.reject.wizard.form</field>
+        <field name="model">payment.date.change.reject.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Reject Date Change Request">
+                <group>
+                    <field name="approval_id" options="{'no_open': True}"/>
+                    <field name="reason" string="Rejection Reason" placeholder="Explain why this request is being rejected..."/>
+                </group>
+                <footer>
+                    <button name="action_confirm_reject" string="Confirm Rejection" type="object" class="btn-danger"/>
+                    <button string="Cancel" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+</odoo>

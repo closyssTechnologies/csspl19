@@ -1,0 +1,6 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_payment_date_approval_user,payment.month.date.change.approval user,model_payment_month_date_change_approval,csspl_payment_date_approval.group_payment_date_change_user,1,1,1,0
+access_payment_date_approval_approver,payment.month.date.change.approval approver,model_payment_month_date_change_approval,csspl_payment_date_approval.group_payment_date_change_approver,1,1,1,0
+access_payment_date_approval_admin,payment.month.date.change.approval admin,model_payment_month_date_change_approval,csspl_payment_date_approval.group_payment_date_change_admin,1,1,1,1
+access_payment_date_change_wizard,payment.date.change.wizard,model_payment_date_change_wizard,base.group_user,1,1,1,1
+access_payment_date_change_reject_wizard,payment.date.change.reject.wizard,model_payment_date_change_reject_wizard,base.group_user,1,1,1,1
