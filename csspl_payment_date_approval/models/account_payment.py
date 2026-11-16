@@ -39,7 +39,13 @@ class AccountPayment(models.Model):
     @api.depends('payment_month_date_from', 'payment_month_date_to')
     def _compute_is_payment_month_date_locked(self):
         for rec in self:
-            rec.is_payment_month_date_locked = bool(rec.id and (rec.payment_month_date_from or rec.payment_month_date_to))
+            rec.is_payment_month_date_locked = bool(
+                rec.id and isinstance(rec.id, int) and (rec.payment_month_date_from or rec.payment_month_date_to)
+            )
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        return super(AccountPayment, self.with_context(bypass_payment_date_lock=True)).create(vals_list)
 
     def write(self, vals):
         check_from = 'payment_month_date_from' in vals
