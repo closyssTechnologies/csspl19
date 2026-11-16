@@ -186,7 +186,43 @@ class PaymentMonthDateChangeApproval(models.Model):
         for vals in vals_list:
             if vals.get('name', _('New')) == _('New'):
                 vals['name'] = self.env['ir.sequence'].next_by_code('payment.month.date.change.approval') or _('New')
-        return super().create(vals_list)
+        records = super().create(vals_list)
+        for rec in records:
+            if rec.state == 'pending':
+                rec._schedule_approval_activity()
+        return records
+
+    def _schedule_approval_activity(self):
+        for rec in self:
+            if not rec.approver_id:
+                continue
+            todo_type = self.env.ref('mail.mail_activity_data_todo', raise_if_not_found=False)
+            existing = rec.activity_ids.filtered(
+                lambda a: a.user_id == rec.approver_id and (not todo_type or a.activity_type_id == todo_type)
+            )
+            if not existing:
+                payment_ref = rec.payment_id.name or rec.payment_name or str(rec.payment_id.id)
+                rec.activity_schedule(
+                    act_type_xmlid='mail.mail_activity_data_todo',
+                    summary=_("Payment Date Change Approval: %s", payment_ref),
+                    note=_(
+                        "<p>A Payment Month Date Change request has been submitted for your approval.</p>"
+                        "<ul>"
+                        "<li><strong>Payment:</strong> %s</li>"
+                        "<li><strong>Requested By:</strong> %s</li>"
+                        "<li><strong>Current Dates:</strong> %s to %s</li>"
+                        "<li><strong>Requested Dates:</strong> %s to %s</li>"
+                        "<li><strong>Reason:</strong> %s</li>"
+                        "</ul>",
+                        payment_ref,
+                        rec.requested_by.name or '',
+                        rec.requested_date_from or '', rec.requested_date_to or '',
+                        rec.payment_month_date_from or '', rec.payment_month_date_to or '',
+                        rec.reason or ''
+                    ),
+                    user_id=rec.approver_id.id,
+                    date_deadline=fields.Date.today(),
+                )
 
     def write(self, vals):
         # Prevent editing dates or payment once terminal
@@ -207,10 +243,7 @@ class PaymentMonthDateChangeApproval(models.Model):
         self.ensure_one()
         if not token or not self._approval_token:
             return False
-        valid = hmac.compare_digest(self._approval_token, token)
-        if valid:
-            self.sudo().write({'_approval_token': False})
-        return valid
+        return hmac.compare_digest(self._approval_token, token)
 
     def action_submit(self):
         for rec in self:
@@ -235,6 +268,7 @@ class PaymentMonthDateChangeApproval(models.Model):
                 'requested_on': fields.Datetime.now(),
             })
 
+            rec._schedule_approval_activity()
             rec.message_post(body=_("Date Change Request submitted to %s for approval.", rec.approver_id.name))
             rec.payment_id.message_post(body=_(
                 "Date Change Approval Request <a href='#' data-oe-model='payment.month.date.change.approval' data-oe-id='%s'>%s</a> "
@@ -260,8 +294,10 @@ class PaymentMonthDateChangeApproval(models.Model):
                 'approved_by': self.env.user.id,
                 'approved_on': fields.Datetime.now(),
                 'state': 'approved',
+                '_approval_token': False,
             })
 
+            rec.activity_feedback(['mail.mail_activity_data_todo'], feedback=_("Approved by %s.", self.env.user.name))
             rec.message_post(body=_("Request approved by %s.", self.env.user.name))
             rec.payment_id.message_post(body=_(
                 "<p><strong>Payment Month Dates Updated via Approval %s</strong></p>"
@@ -319,6 +355,7 @@ class PaymentMonthDateChangeApproval(models.Model):
             'state': 'rejected',
         })
 
+        self.activity_feedback(['mail.mail_activity_data_todo'], feedback=_("Rejected by %s. Reason: %s", self.env.user.name, rejection_reason))
         self.message_post(body=_("Request rejected by %s. Reason: %s", self.env.user.name, rejection_reason))
         self.payment_id.message_post(body=_(
             "Date Change Approval Request %s was rejected by %s. Reason: %s",
@@ -340,6 +377,7 @@ class PaymentMonthDateChangeApproval(models.Model):
                 'state': 'cancelled',
             })
 
+            rec.activity_unlink(['mail.mail_activity_data_todo'])
             rec.message_post(body=_("Request cancelled by %s.", self.env.user.name))
             rec.payment_id.message_post(body=_(
                 "Date Change Approval Request %s was cancelled by %s.",

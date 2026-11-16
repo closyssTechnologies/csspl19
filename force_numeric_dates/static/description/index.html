@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"/>
+    <style>
+        body { font-family: sans-serif; color: #333; max-width: 800px; margin: 0 auto; padding: 20px; }
+        h1 { color: #714bba; }
+        h2 { color: #714bba; border-bottom: 2px solid #e8e0f7; padding-bottom: 6px; margin-top: 32px; }
+        .banner { width: 100%; border-radius: 10px; margin-bottom: 24px; }
+        .highlight { background: #f3eeff; border-left: 4px solid #714bba; padding: 12px 16px; border-radius: 4px; margin: 16px 0; }
+        table { border-collapse: collapse; width: 100%; margin: 16px 0; }
+        th { background: #714bba; color: #fff; padding: 8px 12px; text-align: left; }
+        td { padding: 8px 12px; border-bottom: 1px solid #e8e0f7; }
+        tr:nth-child(even) td { background: #f9f6ff; }
+        code { background: #f3eeff; padding: 2px 6px; border-radius: 3px; font-size: 0.92em; }
+        .badge { display: inline-block; background: #ffc83c; color: #4e308c; border-radius: 5px;
+                 padding: 3px 10px; font-weight: bold; font-size: 0.85em; margin: 2px 4px 2px 0; }
+        ul li { margin-bottom: 6px; }
+    </style>
+</head>
+<body>
+
+<img src="banner.png" alt="Force Numeric Dates banner" class="banner"/>
+
+<h1>Force Numeric Dates</h1>
+
+<p>
+    Odoo 19 changed the default rendering of <code>date</code> and <code>datetime</code> fields
+    to a text-month format (e.g. <strong>Jan 15, 2026</strong>). This module restores numeric
+    date display (<strong>15/01/2026</strong>) using each user's own language format — automatically,
+    with no view changes required.
+</p>
+
+<div class="highlight">
+    <strong>Before:</strong> Jan 15, 2026 &nbsp;→&nbsp; <strong>After:</strong> 15/01/2026
+    &nbsp;(format follows each user's language: DD/MM/YYYY, MM/DD/YYYY, etc.)
+</div>
+
+<span class="badge">Odoo 19</span>
+<span class="badge">Per-User</span>
+<span class="badge">Language-Aware</span>
+<span class="badge">No Configuration</span>
+
+<h2>Features</h2>
+<ul>
+    <li><strong>Per-user, per-language</strong> — format is read from <code>res.lang.date_format</code>;
+        every user sees their own locale's numeric date.</li>
+    <li><strong>Zero view changes</strong> — no need to add <code>options="{'numeric': true}"</code>
+        to every field in every view.</li>
+    <li><strong>Full coverage</strong> — list cells, form views, kanban cards, search/group-by
+        facets, input placeholders, and list column widths all updated.</li>
+    <li><strong>Per-field opt-out</strong> — add <code>options="{'numeric': false}"</code> to any
+        field in a view arch to keep text-month format for that specific field.</li>
+</ul>
+
+<h2>Coverage</h2>
+<table>
+    <tr><th>Surface</th><th>Mechanism</th></tr>
+    <tr><td>List view cells</td><td>formatters registry override</td></tr>
+    <tr><td>Search / group-by facets</td><td>formatters registry override</td></tr>
+    <tr><td>Form view (readonly &amp; editable)</td><td><code>DateTimeField.defaultProps</code> + <code>extractProps</code></td></tr>
+    <tr><td>Kanban view</td><td><code>DateTimeField.defaultProps</code> + <code>extractProps</code></td></tr>
+    <tr><td>Input placeholder text</td><td><code>extractProps</code> patch</td></tr>
+    <tr><td>List column widths</td><td><code>listViewWidth</code> patch (numeric_date / numeric_datetime)</td></tr>
+    <tr><td>Date range fields</td><td>Automatic (dateRangeField delegates to patched helpers)</td></tr>
+</table>
+
+<h2>What Is Not Covered</h2>
+<p>
+    Chatter, Activity, and Discuss timestamps are rendered by a separate helper
+    (<code>toLocaleDateTimeString</code>) in the <code>mail</code> addon and are intentionally
+    not changed by this module.
+</p>
+
+<h2>Configuration</h2>
+<p>
+    None required. Install the module and all backend date/datetime fields switch to numeric
+    display immediately. Each user's language setting in <em>Preferences</em> controls the
+    exact format (DD/MM/YYYY, MM/DD/YYYY, YYYY-MM-DD, etc.).
+</p>
+
+<h2>Technical Notes</h2>
+<ul>
+    <li>Pure JavaScript / OWL — no Python models, no database changes.</li>
+    <li>Depends only on the <code>web</code> module.</li>
+    <li>Compatible with Odoo 19 Community and Enterprise.</li>
+</ul>
+
+</body>
+</html>

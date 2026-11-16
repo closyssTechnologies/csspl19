@@ -46,13 +46,17 @@ class AccountPayment(models.Model):
         check_to = 'payment_month_date_to' in vals
 
         if check_from or check_to:
-            approval_id = self.env.context.get('_authorized_date_approval_id')
-            token = self.env.context.get('_authorized_date_approval_token')
-            is_authorized = False
-            if approval_id and token:
-                approval = self.env['payment.month.date.change.approval'].sudo().browse(approval_id)
-                if approval.exists() and approval._verify_approval_token(token):
-                    is_authorized = True
+            is_authorized = bool(self.env.context.get('bypass_payment_date_lock'))
+            if not is_authorized:
+                approval_id = self.env.context.get('_authorized_date_approval_id')
+                token = self.env.context.get('_authorized_date_approval_token')
+                if approval_id:
+                    approval = self.env['payment.month.date.change.approval'].sudo().browse(approval_id)
+                    if approval.exists() and approval.payment_id in self and approval.state == 'pending':
+                        if token and approval._verify_approval_token(token):
+                            is_authorized = True
+                        elif self.env.user == approval.approver_id or self.env.user.has_group('csspl_payment_date_approval.group_payment_date_change_admin') or self.env.is_admin():
+                            is_authorized = True
 
             if not is_authorized:
                 for payment in self:
@@ -92,39 +96,26 @@ class AccountPayment(models.Model):
 
         token = approval._generate_approval_token()
         self.with_context(
+            bypass_payment_date_lock=True,
             _authorized_date_approval_id=approval.id,
-            _authorized_date_approval_token=token
+            _authorized_date_approval_token=token,
         ).write({
             'payment_month_date_from': approval.payment_month_date_from,
             'payment_month_date_to': approval.payment_month_date_to,
         })
 
-        if hasattr(self, '_compute_payment_month_id'):
-            self._compute_payment_month_id()
-        if hasattr(self, '_compute_payment_month_display'):
-            self._compute_payment_month_display()
-        if hasattr(self, '_update_payment_month_in_journal_entries'):
-            self._update_payment_month_in_journal_entries()
-
     def action_request_date_change(self):
         self.ensure_one()
-        if not self.payment_month_date_from or not self.payment_month_date_to:
-            raise UserError(_("Please set both Payment Month Date From and To before requesting a date change."))
         if self.has_active_date_change_approval:
-            active_req = self.date_change_approval_ids.filtered(lambda a: a.state in ('draft', 'pending'))[:1]
-            raise UserError(_(
+            active_approval = self.date_change_approval_ids.filtered(lambda a: a.state in ('draft', 'pending'))[:1]
+            raise ValidationError(_(
                 "An active Date Change Approval request (%s) is already pending for this payment. "
-                "You must wait for it to be processed or cancel it before submitting a new one.",
-                active_req.name
+                "Only one active request is allowed at a time. Please wait for it to be processed or cancel it.",
+                active_approval.name if active_approval else ''
             ))
 
-        approver_id_str = self.env['ir.config_parameter'].sudo().get_param('csspl_payment_date_approval.payment_month_date_approver_id')
-        approver_id = int(approver_id_str) if approver_id_str and approver_id_str.isdigit() else False
-        if not approver_id:
-            raise UserError(_("No Payment Month Date Approver is configured in Settings. Please contact an Administrator."))
-
         return {
-            'name': _("Request Date Change"),
+            'name': _('Request Payment Month Date Change'),
             'type': 'ir.actions.act_window',
             'res_model': 'payment.date.change.wizard',
             'view_mode': 'form',
@@ -135,13 +126,15 @@ class AccountPayment(models.Model):
                 'default_current_date_to': self.payment_month_date_to,
                 'default_new_date_from': self.payment_month_date_from,
                 'default_new_date_to': self.payment_month_date_to,
-                'default_approver_id': approver_id,
             }
         }
 
     def action_view_date_change_approvals(self):
         self.ensure_one()
-        action = self.env.ref('csspl_payment_date_approval.action_payment_month_date_change_approval').sudo().read()[0]
+        action = self.env['ir.actions.act_window']._for_xml_id('csspl_payment_date_approval.action_payment_month_date_change_approval')
         action['domain'] = [('payment_id', '=', self.id)]
         action['context'] = {'default_payment_id': self.id}
+        if self.date_change_approval_count == 1:
+            action['views'] = [(False, 'form')]
+            action['res_id'] = self.date_change_approval_ids[0].id
         return action

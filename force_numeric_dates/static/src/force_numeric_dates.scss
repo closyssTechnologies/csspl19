@@ -1,0 +1,22 @@
+// Prevent date wrapping and expand the first column in the Bank Reconciliation Kanban view
+.o_bank_reconciliation_container {
+    .o_bank_reconciliation_kanban_renderer {
+        .o_statement_line .o_grid_container {
+            .o_row .d-flex.gap-3 > div:first-child {
+                white-space: nowrap;
+            }
+        }
+    }
+
+    @include media-breakpoint-up(md) {
+        .o_bank_reconciliation_kanban_renderer {
+            .o_statement_line .o_grid_container {
+                grid-template-columns: 130px 3fr minmax(200px, 1fr) 1fr 40px;
+            }
+        }
+
+        .o_bank_reconciliation_quick_create .o_quick_create {
+            grid-template-columns: 130px 2fr 1fr 1fr;
+        }
+    }
+}
