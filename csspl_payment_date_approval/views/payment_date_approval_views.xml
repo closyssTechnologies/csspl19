@@ -91,11 +91,11 @@
         <field name="name">payment.month.date.change.approval.search</field>
         <field name="model">payment.month.date.change.approval</field>
         <field name="arch" type="xml">
-            <search string="Search Date Change Approvals">
+            <search>
                 <field name="name" string="Reference"/>
-                <field name="payment_id" string="Payment"/>
-                <field name="requested_by" string="Requested By"/>
-                <field name="approver_id" string="Approver"/>
+                <field name="payment_id"/>
+                <field name="requested_by"/>
+                <field name="approver_id"/>
                 <separator/>
                 <filter name="my_pending_approvals" string="My Pending Approvals" domain="[('approver_id', '=', uid), ('state', '=', 'pending')]"/>
                 <filter name="my_requests" string="My Requests" domain="[('requested_by', '=', uid)]"/>
@@ -104,11 +104,11 @@
                 <filter name="filter_approved" string="Approved" domain="[('state', '=', 'approved')]"/>
                 <filter name="filter_rejected" string="Rejected" domain="[('state', '=', 'rejected')]"/>
                 <filter name="filter_cancelled" string="Cancelled" domain="[('state', '=', 'cancelled')]"/>
-                <group expand="0" string="Group By">
-                    <filter name="group_by_payment" string="Payment" domain="[]" context="{'group_by': 'payment_id'}"/>
-                    <filter name="group_by_state" string="Status" domain="[]" context="{'group_by': 'state'}"/>
-                    <filter name="group_by_approver" string="Approver" domain="[]" context="{'group_by': 'approver_id'}"/>
-                    <filter name="group_by_requester" string="Requested By" domain="[]" context="{'group_by': 'requested_by'}"/>
+                <group>
+                    <filter name="group_by_payment" string="Payment" context="{'group_by': 'payment_id'}"/>
+                    <filter name="group_by_state" string="Status" context="{'group_by': 'state'}"/>
+                    <filter name="group_by_approver" string="Approver" context="{'group_by': 'approver_id'}"/>
+                    <filter name="group_by_requester" string="Requested By" context="{'group_by': 'requested_by'}"/>
                 </group>
             </search>
         </field>
