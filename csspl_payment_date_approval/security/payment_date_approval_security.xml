@@ -32,7 +32,7 @@
         <field name="name">Payment Date Change Administrator</field>
         <field name="privilege_id" ref="res_groups_privilege_payment_date_approval"/>
         <field name="implied_ids" eval="[(4, ref('group_payment_date_change_approver'))]"/>
-        <field name="users" eval="[(4, ref('base.user_root')), (4, ref('base.user_admin'))]"/>
+        <field name="user_ids" eval="[(4, ref('base.user_root')), (4, ref('base.user_admin'))]"/>
         <field name="comment">Administrators who can configure the approver and manage all approval records.</field>
     </record>
 
