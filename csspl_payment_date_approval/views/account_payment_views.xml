@@ -3,7 +3,7 @@
     <record id="view_account_payment_form_inherit_date_approval" model="ir.ui.view">
         <field name="name">account.payment.form.inherit.date.approval</field>
         <field name="model">account.payment</field>
-        <field name="inherit_id" ref="csspl_project.view_account_payment_form_inherit_csspl_project"/>
+        <field name="inherit_id" ref="csspl_project.account_payment_form_view_inherit"/>
         <field name="arch" type="xml">
             <xpath expr="//header" position="inside">
                 <button name="action_request_date_change"
