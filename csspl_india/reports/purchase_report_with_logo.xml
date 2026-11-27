@@ -4,6 +4,7 @@
     <template id="report_purchaseorder_document1">
 
         <t t-set="o" t-value="o.with_context(lang=o.partner_id.lang)"/>
+        <t t-set="company" t-value="company.sudo()"/>
 
         <style type="text/css">
             /* =====================================================
@@ -537,37 +538,37 @@
 
                             <!-- Logo block -->
                             <div style="display:block; width:100%; margin:0 0 6px 0; padding:0;">
-                                <img t-if="o.company_id.logo"
-                                     t-att-src="image_data_uri(o.company_id.logo)"
+                                <img t-if="company.logo"
+                                     t-att-src="image_data_uri(company.logo)"
                                      style="display:block; max-width:240px; max-height:80px; margin:0; padding:0; border:0;"/>
                             </div>
 
                             <!-- Company block below logo -->
                             <div style="display:block; width:100%; margin:0; padding:0; font-family:Arial, Helvetica, sans-serif; font-size:12px; line-height:1.35; color:#172033; text-align:left;">
                                 <div style="font-size:14px; font-weight:700; color:#172033; margin:0 0 2px 0; padding:0;">
-                                    <span t-esc="o.company_id.parent_id.name or o.company_id.name or ''"/>
+                                    <span t-esc="company.parent_id.name or company.name or ''"/>
                                 </div>
 
-                                <div t-if="o.company_id.partner_id.street" style="margin:0; padding:0;">
-                                    <span t-esc="o.company_id.partner_id.street"/>
+                                <div t-if="company.partner_id.street" style="margin:0; padding:0;">
+                                    <span t-esc="company.partner_id.street"/>
                                 </div>
 
-                                <div t-if="o.company_id.partner_id.street2" style="margin:0; padding:0;">
-                                    <span t-esc="o.company_id.partner_id.street2"/>
+                                <div t-if="company.partner_id.street2" style="margin:0; padding:0;">
+                                    <span t-esc="company.partner_id.street2"/>
                                 </div>
 
-                                <div t-if="o.company_id.partner_id.city or o.company_id.partner_id.zip" style="margin:0; padding:0;">
-                                    <span t-esc="o.company_id.partner_id.city or ''"/>
-                                    <span t-if="o.company_id.partner_id.zip">
+                                <div t-if="company.partner_id.city or company.partner_id.zip" style="margin:0; padding:0;">
+                                    <span t-esc="company.partner_id.city or ''"/>
+                                    <span t-if="company.partner_id.zip">
                                         <span> </span>
-                                        <span t-esc="o.company_id.partner_id.zip"/>
+                                        <span t-esc="company.partner_id.zip"/>
                                     </span>
                                 </div>
 
-                                <div t-if="o.company_id.partner_id.state_id or o.company_id.partner_id.country_id" style="margin:0; padding:0;">
-                                    <span t-esc="o.company_id.partner_id.state_id.name or ''"/>
-                                    <span t-if="o.company_id.partner_id.state_id and o.company_id.partner_id.country_id"> </span>
-                                    <span t-esc="o.company_id.partner_id.country_id.name or ''"/>
+                                <div t-if="company.partner_id.state_id or company.partner_id.country_id" style="margin:0; padding:0;">
+                                    <span t-esc="company.partner_id.state_id.name or ''"/>
+                                    <span t-if="company.partner_id.state_id and company.partner_id.country_id"> </span>
+                                    <span t-esc="company.partner_id.country_id.name or ''"/>
                                 </div>
                             </div>
 
@@ -609,34 +610,34 @@
 
                             <div class="po-address">
                                 <strong>
-                                    <span t-esc="o.company_id.parent_id.name or o.company_id.partner_id.name or ''"/>
+                                    <span t-esc="company.parent_id.name or company.partner_id.name or ''"/>
                                 </strong>
                                 <br/>
 
-                                <span t-esc="o.company_id.partner_id.street or ''"/>
-                                <span t-if="o.company_id.partner_id.street2">
+                                <span t-esc="company.partner_id.street or ''"/>
+                                <span t-if="company.partner_id.street2">
                                     <span>, </span>
-                                    <span t-esc="o.company_id.partner_id.street2"/>
+                                    <span t-esc="company.partner_id.street2"/>
                                 </span>
-                                <br t-if="o.company_id.partner_id.street or o.company_id.partner_id.street2"/>
+                                <br t-if="company.partner_id.street or company.partner_id.street2"/>
 
-                                <span t-esc="o.company_id.partner_id.city or ''"/>
-                                <span t-if="o.company_id.partner_id.state_id">
+                                <span t-esc="company.partner_id.city or ''"/>
+                                <span t-if="company.partner_id.state_id">
                                     <span>, </span>
-                                    <span t-esc="o.company_id.partner_id.state_id.name"/>
+                                    <span t-esc="company.partner_id.state_id.name"/>
                                 </span>
-                                <span t-if="o.company_id.partner_id.zip">
+                                <span t-if="company.partner_id.zip">
                                     <span> - </span>
-                                    <span t-esc="o.company_id.partner_id.zip"/>
+                                    <span t-esc="company.partner_id.zip"/>
                                 </span>
-                                <br t-if="o.company_id.partner_id.city or o.company_id.partner_id.state_id or o.company_id.partner_id.zip"/>
+                                <br t-if="company.partner_id.city or company.partner_id.state_id or company.partner_id.zip"/>
 
-                                <span t-esc="o.company_id.partner_id.country_id.name or ''"/>
-                                <br t-if="o.company_id.partner_id.country_id"/>
+                                <span t-esc="company.partner_id.country_id.name or ''"/>
+                                <br t-if="company.partner_id.country_id"/>
 
-                                <span t-if="o.company_id.partner_id.vat">
+                                <span t-if="company.partner_id.vat">
                                     GSTIN:
-                                    <span t-esc="o.company_id.partner_id.vat"/>
+                                    <span t-esc="company.partner_id.vat"/>
                                 </span>
                             </div>
                         </td>
@@ -796,7 +797,7 @@
                         <td class="po-summary-right">
                             <table class="po-tax-table">
                                 <t t-set="tax_totals" t-value="o.tax_totals"/>
-                                <t t-set="currency" t-value="o.currency_id or o.company_id.currency_id"/>
+                                <t t-set="currency" t-value="o.currency_id or company.currency_id"/>
                                 <t t-call="account.document_tax_totals"/>
                             </table>
                         </td>
@@ -826,7 +827,7 @@
                         <td style="width:50%; text-align:right;">
                             <strong>
                                 For
-                                <span t-field="o.company_id.parent_id.name"/>
+                                <span t-field="company.parent_id.name"/>
                             </strong>
 
                             <div class="po-sign-space"></div>
