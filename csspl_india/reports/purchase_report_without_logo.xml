@@ -6,6 +6,9 @@
         <t t-call="web.html_container">
             <t t-call="csspl_india.report_purchase_layout">
                 <t t-set="o" t-value="o.with_context(lang=o.partner_id.lang)"/>
+                <!-- [PO-REPORT-PARENT-SUDO 2026-11-27] NEW: users may not have read access to the parent company
+                     (company rule) -> read company/parent company with sudo for printing only -->
+                <t t-set="po_company_sudo" t-value="o.company_id.sudo()"/>
 
                 <style type="text/css">
                     /* wkhtmltopdf-safe CSS: no Google fonts, no flex, no grid */
@@ -513,7 +516,10 @@
                             <td style="width:50%;">
                                 <div class="po-section-head">Buyer / Bill To</div>
                                 <div class="po-address">
+                                    <!-- [PO-REPORT-PARENT-SUDO 2026-11-27] OLD: AccessError on parent company
                                     <strong><span t-esc="o.company_id.parent_id.partner_id.name or o.company_id.partner_id.name or ''"/></strong><br/>
+                                    -->
+                                    <strong><span t-esc="po_company_sudo.parent_id.partner_id.name or po_company_sudo.partner_id.name or ''"/></strong><br/>
                                     <span t-esc="o.company_id.partner_id.street or ''"/>
                                     <span t-if="o.company_id.partner_id.street2">, <span t-esc="o.company_id.partner_id.street2"/></span><br/>
                                     <span t-esc="o.company_id.partner_id.city or ''"/>
@@ -677,7 +683,10 @@
                                 <span t-field="o.user_id"/>
                             </td>
                             <td style="width:50%; text-align:right;">
+                                <!-- [PO-REPORT-PARENT-SUDO 2026-11-27] OLD: AccessError on parent company
                                 <strong>For <span t-esc="o.company_id.parent_id.name or o.company_id.name or '' "/></strong>
+                                -->
+                                <strong>For <span t-esc="po_company_sudo.parent_id.name or po_company_sudo.name or '' "/></strong>
                                 <div class="po-sign-space"></div>
                                 <div class="po-digital-note">This is a digitally generated purchase order and does not require signature.</div>
                             </td>
