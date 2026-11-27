@@ -4,7 +4,11 @@
     <template id="report_purchaseorder_document1">
 
         <t t-set="o" t-value="o.with_context(lang=o.partner_id.lang)"/>
+        <!-- [PO-REPORT-COMPANY 2026-11-27] OLD: 'company' is only defined by web.external_layout, which this template does not call -> KeyError
         <t t-set="company" t-value="company.sudo()"/>
+        -->
+        <!-- [PO-REPORT-COMPANY 2026-11-27] NEW: take company from the PO, fall back to the current company -->
+        <t t-set="company" t-value="(o.company_id or res_company).sudo()"/>
 
         <style type="text/css">
             /* =====================================================
